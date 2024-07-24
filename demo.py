@@ -12,22 +12,28 @@ meta, root = do.parse_from_file("test.vcad")
 output_file = "output.gcode"
 
 # Settings for slicing
+interlink = True
+extruder_temperature = 210
+bed_temperature = 60
+flow_rate = 0.97
 layer_height = 0.2
 filament_diameter = 1.75
 bead_width = 0.4
 num_walls = 12
-infill_density_percentage = 0.90
+infill_density_percentage = 1.0
 num_regions = 4
 center_point = pv.Point2(175.0, 100.0)
 visualize_paths = False
+start_script = "gcode_scripts/start_xl.gcode"
+end_script = "gcode_scripts/end_xl.gcode"
 
 # Purge tower settings
 min_coord = pv.Point2(-50, 15.0)
-max_coord = pv.Point2(50.0, 200.0)
-x_size = 22.0
-y_size = 45.0
-x_spacing = x_size + 4
-y_spacing = y_size + 4
+max_coord = pv.Point2(130.0, 200.0)
+x_size = 14.0
+y_size = 75.0
+x_spacing = x_size + 1.75
+y_spacing = y_size + 1.75
 
 
 def generate_linear_ranges(num_ranges, min, max):
@@ -72,7 +78,7 @@ start = time.time()
 slicer = slicer.Slicer(root, meta.min, meta.max, meta.voxel_size, center_point=center_point,
                        purge_min=min_coord, purge_max=max_coord,
                        purge_tower_x_spacing=x_spacing, purge_tower_y_spacing=y_spacing,
-                       purge_tower_x_size=x_size, purge_tower_y_size=y_size)
+                       purge_tower_x_size=x_size, purge_tower_y_size=y_size, interlink=interlink)
 slicer.slice(ranges=ranges,
              layer_height=layer_height, bead_width=bead_width,
              num_walls=num_walls, infill_density=infill_density_percentage)
@@ -83,8 +89,9 @@ if visualize_paths:
 
 # Write the gcode
 gcode_writer = gw.GCodeWriter(output_file, filament_diameter=filament_diameter, layer_height=layer_height,
-                              bead_width=bead_width, flow_rate=1.0)
-slicer.write_gcode(gcode_writer)
+                              bead_width=bead_width, flow_rate=flow_rate,
+                              start_script=start_script, end_script=end_script)
+slicer.write_gcode(gcode_writer, extruder_temperature=extruder_temperature, bed_temperature=bed_temperature)
 
 print("GCode written to {}".format(output_file))
 print("Done! Slicing took {} seconds".format(time.time() - start))

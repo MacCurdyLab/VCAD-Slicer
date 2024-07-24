@@ -6,7 +6,8 @@ class Slicer:
     def __init__(self, root, min, max, voxel_size, center_point=pv.Vec2(0, 0),
                  purge_min=pv.Point2(0.0, 0.0), purge_max=pv.Point2(260.0, 260.0),
                  purge_tower_x_spacing=12.0, purge_tower_y_spacing=12.0,
-                 purge_tower_x_size=12.0, purge_tower_y_size=12.0):
+                 purge_tower_x_size=12.0, purge_tower_y_size=12.0,
+                 interlink=False):
 
         self.cross_sectioner = pv.CrossSectionSlicer(root, min, max, voxel_size)
         self.min = min
@@ -21,6 +22,7 @@ class Slicer:
         self.purge_tower_x_size = purge_tower_x_size
         self.purge_tower_y_size = purge_tower_y_size
         self.purge_tower_centers = []
+        self.interlink = interlink
 
         self.layers = []
 
@@ -85,7 +87,10 @@ class Slicer:
         index = 1
         for l in self.layers:
             print("\t-> Cutting layer {} into ranges".format(index))
-            l.cut_into_ranges(desired_ranges, self.cross_sectioner)
+            if self.interlink:
+                l.cut_into_ranges_interdigitated(desired_ranges, self.cross_sectioner, index % 2 == 0)
+            else:
+                l.cut_into_ranges(desired_ranges, self.cross_sectioner, index % 2 == 0)
             index += 1
 
     def connect_paths(self):

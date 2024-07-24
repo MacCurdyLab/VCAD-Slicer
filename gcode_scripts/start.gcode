@@ -30,7 +30,5 @@ G92 E0                        ; Reset Extruder
 G1 Z2.0 F3000                 ; Move Z Axis up little to prevent scratching of Heat Bed
 G1 X5 Y20 Z0.4 F3000.0        ; Move over to prevent blob squish
 G1 X10 Y10 Z0.2 F600          ; Set feedrate
-M221 S30                      ; Set flowrate
-M207 F2100 S6 Z1              ; Set retraction settings
 
 G92 E0

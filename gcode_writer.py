@@ -2,7 +2,8 @@ import math
 
 
 class GCodeWriter:
-    def __init__(self, filename, filament_diameter, layer_height, bead_width, flow_rate=1.0):
+    def __init__(self, filename, filament_diameter, layer_height, bead_width, flow_rate=1.0,
+                 start_script="gcode_scripts/start.gcode", end_script="gcode_scripts/end.gcode"):
         # Make a new file for writing
         self.file = open(filename, "w")
 
@@ -16,13 +17,23 @@ class GCodeWriter:
         self.current_lower = 0
         self.current_higher = 0
         self.current_layer_number = 0
+        self.current_feedrate = 2400
+        self.desired_extrusion_feedrate = 1200
+        self.travel_speed = 9000
+        self.idle_temperature = 70
+        self.use_retraction = True
+        self.start_script = start_script
+        self.end_script = end_script
+        self.mode = "temperature"
 
     def write_header(self, extruder_temperature=200, bed_temperature=60):
-        file_path = "gcode_scripts/start.gcode"
+        file_path = self.start_script
 
         replacement_dict = {
             "[bed_temperature]": str(bed_temperature),
-            "[extruder_temperature] ": str(extruder_temperature)
+            "[extruder_temperature]": str(extruder_temperature),
+            "[travel_speed]": str(self.travel_speed),
+            "[idle_temperature]": str(self.idle_temperature)
         }
 
         # Read the start gcode from the file
@@ -35,7 +46,7 @@ class GCodeWriter:
             self.file.write(start_gcode)
 
     def write_footer(self):
-        file_path = "gcode_scripts/end.gcode"
+        file_path = self.end_script
         # Read the end gcode from the file
         with open(file_path, "r") as end_gcode_file:
             end_gcode = end_gcode_file.read()
@@ -51,17 +62,10 @@ class GCodeWriter:
         layer_height = self.layer_height
         filament_diameter = self.filament_diameter
 
-        # Calculate the amount of filament needed for this segment. This can be done using the capsule model.
-        # The capsule model is a simplification of the actual extrusion process, but it is a good approximation.
-        # The capsule model assumes that the extruded filament has a squished circular cross-section that forms a
-        # capsule shape. The capsule shape has a height of the layer height.
-        area_of_rectangle = bead_width * layer_height
-        area_of_circle = math.pi * (layer_height / 2) ** 2
-        cross_sectional_area = area_of_rectangle + area_of_circle
-        segment_volume = segment_length * cross_sectional_area
-
+        volume_to_extrude = segment_length * bead_width * layer_height
         filament_radius = filament_diameter / 2
-        filament_length = segment_volume / (math.pi * filament_radius ** 2)
+        filament_length = volume_to_extrude / (math.pi * filament_radius ** 2)
+
 
         return filament_length * self.flow_rate
 
@@ -73,18 +77,27 @@ class GCodeWriter:
 
         length = math.sqrt((end.x() - start.x()) ** 2 + (end.y() - start.y()) ** 2)
 
-        retract = False
-        if length > 6.0:
-            retract = True
+        should_retract = False
+        if length > 6.0 and self.use_retraction:
+            should_retract = True
 
-        if retract:
-            self.file.write("G10 ; retract\n")
+        retract_speed = 2100
+        retract_length = 6.0
+        un_retract_speed = 2100
+        un_retract_length = 6.0
+        travel_speed = self.travel_speed
+
+        if should_retract:
+            self.file.write("G1 E-{:.4f} F{:.4f} ; Retract\n".format(retract_length, retract_speed))
+            self.current_feedrate = retract_speed
 
         # Write the gcode for a travel move
-        self.file.write("G0 X{} Y{} Z{}\n".format(self.current_x, self.current_y, self.current_z))
+        self.file.write("G0 X{:.4f} Y{:.4f} Z{:.4f} F{:.4f}; Travel\n".format(self.current_x, self.current_y, self.current_z, travel_speed))
+        self.current_feedrate = travel_speed
 
-        if retract:
-            self.file.write("G11 ; un-retract\n")
+        if should_retract:
+            self.file.write("G1 E{:.4f} F{:.4f} ; Unretract\n".format(un_retract_length, un_retract_speed))
+            self.current_feedrate = un_retract_speed
 
     def write_extrusion_line(self, segment):
         end = segment.target()
@@ -93,7 +106,11 @@ class GCodeWriter:
         extrusion_amount = self.calculate_extrusion_amount(segment)
 
         # Write the gcode for an extrusion move
-        self.file.write("G1 X{} Y{} Z{} E{}\n".format(self.current_x, self.current_y, self.current_z, extrusion_amount))
+        if self.current_feedrate != self.desired_extrusion_feedrate:
+            self.current_feedrate = self.desired_extrusion_feedrate
+            self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f} E{:.6f} F{:.4f}\n".format(self.current_x, self.current_y, self.current_z, extrusion_amount, self.current_feedrate))
+        else:
+            self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f} E{:.6f}\n".format(self.current_x, self.current_y, self.current_z,extrusion_amount))
 
     def write_layer(self, layer):
         self.current_layer_number += 1
@@ -101,7 +118,27 @@ class GCodeWriter:
 
         # Write the z change
         self.write_comment("Layer {}".format(self.current_layer_number))
-        self.file.write("G0 Z{}\n".format(self.current_z))
+
+        # Set the fan speed based on the layer number
+        if self.current_layer_number == 1:
+            self.file.write("M107 ; Turn fan off for first layer\n")
+        elif self.current_layer_number == 2:
+            self.file.write("M106 S80\n")
+        elif self.current_layer_number == 3:
+            self.file.write("M106 S160\n")
+        elif self.current_layer_number == 4:
+            self.file.write("M106 S230\n")
+        else:
+            self.file.write("M106 S255\n")
+
+        # Set feedrate settings based on the layer number
+        if self.current_layer_number == 1:
+            self.desired_extrusion_feedrate = 1200
+        else:
+            self.desired_extrusion_feedrate = 2400
+
+        # Go to new z height
+        self.file.write("G1 Z{:.4f}\n".format(self.current_z))
 
         for lower, higher, is_extrusion, polyline in layer.get_paths():
             for segment in polyline.segments():
@@ -124,11 +161,37 @@ class GCodeWriter:
         assert new_range[0] != 0.0 or new_range[1] != 1.0
         self.current_lower = new_range[0]
         self.current_higher = new_range[1]
-        self.write_comment("Starting material range: {} to {}".format(self.current_lower, self.current_higher))
-        middle_point = (self.current_lower + self.current_higher) / 2.0
-        # Write the gcode for a mixing ratio change using the M163 command for extruder 0 and 1
-        self.file.write("M163 S0 P{}\n".format(middle_point))
-        self.file.write("M163 S1 P{}\n".format(1.0 - middle_point))
 
-        # Save the new mixing ratios using the M164 command
-        self.file.write("M164 S0\n")
+        if self.mode == "mixture":
+            self.write_comment("Starting material mixture range: {:.4f} to {:.4f}".format(self.current_lower, self.current_higher))
+            middle_point = (self.current_lower + self.current_higher) / 2.0
+            # Write the gcode for a mixing ratio change using the M163 command for extruder 0 and 1
+            self.file.write("M163 S0 P{:.4f}\n".format(middle_point))
+            self.file.write("M163 S1 P{:.4f}\n".format(1.0 - middle_point))
+
+            # Save the new mixing ratios using the M164 command
+            self.file.write("M164 S0\n")
+        elif self.mode == "temperature":
+            middle_point = (self.current_lower + self.current_higher) / 2.0
+
+            # Convert mixture to temperature using a linear mapping (190 to 220 degrees)
+            middle_point_temperature = 190 + middle_point * 30
+
+            # Compute new flow rate modifier based on the temperature (and therefore the foaming expansion)
+            # flow_rate = ((0.0007125 * (temp^2)) - (0.309775 * temp) + 34.23325) * 100.0
+            flow_rate = ((0.0007125 * (middle_point_temperature ** 2)) - (0.309775 * middle_point_temperature) + 34.23325) * 100.0
+
+            self.write_comment("Starting temperature of {:.4f} as midpoint for range: {:.4f} to {:.4f}".format(
+                middle_point_temperature, self.current_lower, self.current_higher))
+
+            # Park the tool so that the nozzle is sealed
+            self.file.write("P0 S1 L2 D0\t; Park the tool\n")
+
+            # Write the gcode for a temperature change using the M104 command and wait
+            self.file.write("M109 T0 S{:.4f}\t; Set new temp and wait\n".format(middle_point_temperature))
+
+            # Write the gcode for a flow rate change using the M221 command
+            self.file.write("M221 T0 S{:.4f}\t; Set flow rate to compensate for expansion\n".format(flow_rate))
+
+            # Pick the tool back up
+            self.file.write("T0 S1 L0 D0\t; Pick the tool back up and resume\n")

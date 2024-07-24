@@ -90,10 +90,20 @@ class Layer:
             polylines.append((desired_range[0], desired_range[1], True, polyline))
             start_pt = polyline.points()[-1]
 
+        # Calculate total length of purge tower extrusion
+        total_length = 0
+        for lower, higher, is_extrusion, polyline in polylines:
+            if is_extrusion:
+                total_length += polyline.length()
+        # print("Purge tower extrusion length: {:.4f}".format(total_length))
+
         self.connected_paths.extend(polylines)
 
-    def cut_into_ranges(self, desired_ranges, slicer):
+    def cut_into_ranges(self, desired_ranges, slicer, reverse):
         ranges = slicer.slice_material(self.z_height, 1, desired_ranges)
+
+        if reverse:
+            ranges.reverse()
 
         concatenated_walls = []
         for wall in self.walls:
@@ -105,7 +115,6 @@ class Layer:
             resulting_walls = []
             resulting_infill_lines = []
             clipped_walls = pv.Polygon2.Clip(polygons, concatenated_walls)[1]
-            # vis.plot_polygons_and_polylines([], clipped_walls, figsize=(20, 12))
             for polyline in clipped_walls:
                 resulting_walls.append(polyline)
 
@@ -116,14 +125,110 @@ class Layer:
             self.ranged_walls.append((lower, higher, resulting_walls))
             self.ranged_infill.append((lower, higher, resulting_infill_lines))
 
-            labled_polygons = []
-            for lower, higher, wall in self.ranged_walls:
-                for polygon in wall:
-                    labled_polygons.append((polygon, (lower + higher) / 2.0))
-            labled_polylines = []
-            for lower, higher, infill in self.ranged_infill:
-                for line in infill:
-                    labled_polylines.append((line, (lower + higher) / 2.0))
+    @staticmethod
+    def find_and_stitch_wall(paths, new_polyline):
+        for polyline in paths:
+            polyline_start_pt = polyline.points()[0]
+            polyline_end_pt = polyline.points()[-1]
+            new_polyline_start_pt = new_polyline.points()[0]
+            new_polyline_end_pt = new_polyline.points()[-1]
+
+            if Layer.distance(new_polyline_end_pt, polyline_start_pt) < 0.001:
+                # Prepend the new polyline to the existing polyline
+                polyline.prepend(new_polyline)
+                return
+            elif Layer.distance(polyline_end_pt, new_polyline_start_pt) < 0.001:
+                # Append the new polyline to the existing polyline
+                polyline.append(new_polyline)
+                return
+
+
+    def cut_into_ranges_interdigitated(self, desired_ranges, slicer, reverse):
+        overlap_amount = 0.025
+
+        adjusted_ranges = []
+        # Insert a range in between existing ranges that has a width of the overlap amount
+        for i in range(0, len(desired_ranges)):
+            first_range = desired_ranges[i]
+
+            if i == 0:
+                adjusted_ranges.append([first_range[0], first_range[1] - overlap_amount / 2.0])
+                adjusted_ranges.append([first_range[1] - overlap_amount / 2.0, first_range[1] + overlap_amount / 2.0])
+            elif i == len(desired_ranges) - 1:
+                adjusted_ranges.append([first_range[0] + overlap_amount / 2.0, first_range[1]])
+            else:
+                adjusted_ranges.append([first_range[0] + overlap_amount/2.0, first_range[1] - overlap_amount/2.0])
+                adjusted_ranges.append([first_range[1] - overlap_amount / 2.0, first_range[1] + overlap_amount/2.0])
+
+        ranges = slicer.slice_material(self.z_height, 1, adjusted_ranges)
+
+        concatenated_walls = []
+        for wall in self.walls:
+            for polygon in wall:
+                polyline = polygon.to_polyline()
+                concatenated_walls.append(polyline)
+
+        for lower, higher, polygons in ranges:
+            resulting_walls = []
+            resulting_infill_lines = []
+            clipped_walls = pv.Polygon2.Clip(polygons, concatenated_walls)[1]
+            for polyline in clipped_walls:
+                resulting_walls.append(polyline)
+
+            clipped_infill = pv.Polygon2.Clip(polygons, self.infill)[1]
+            for polyline in clipped_infill:
+                resulting_infill_lines.append(polyline)
+
+            self.ranged_walls.append((lower, higher, resulting_walls))
+            self.ranged_infill.append((lower, higher, resulting_infill_lines))
+
+        for i in range(1, len(self.ranged_walls) - 1, 2):
+            left_walls = self.ranged_walls[i - 1][2]
+            overlap_wall = self.ranged_walls[i][2]
+            right_walls = self.ranged_walls[i + 1][2]
+
+            wall_index = 0
+            for polyline in overlap_wall:
+                if wall_index % 2 == 0:
+                    self.find_and_stitch_wall(left_walls, polyline)
+                else:
+                    self.find_and_stitch_wall(right_walls, polyline)
+                wall_index += 1
+
+        # Remove the overlap walls
+        self.ranged_walls = [self.ranged_walls[i] for i in range(0, len(self.ranged_walls), 2)]
+
+        for i in range(0, len(self.ranged_walls)):
+            reset_lower = desired_ranges[i][0]
+            reset_higher = desired_ranges[i][1]
+            self.ranged_walls[i] = (reset_lower, reset_higher, self.ranged_walls[i][2])
+
+        # Do the same for the infill
+        for i in range(1, len(self.ranged_infill) - 1, 2):
+            left_infill = self.ranged_infill[i - 1][2]
+            overlap_infill = self.ranged_infill[i][2]
+            right_infill = self.ranged_infill[i + 1][2]
+
+            infill_index = 0
+            for polyline in overlap_infill:
+                if infill_index % 2 == 0:
+                    self.find_and_stitch_wall(left_infill, polyline)
+                else:
+                    self.find_and_stitch_wall(right_infill, polyline)
+                infill_index += 1
+
+        # Remove the overlap infill
+        self.ranged_infill = [self.ranged_infill[i] for i in range(0, len(self.ranged_infill), 2)]
+
+        for i in range(0, len(self.ranged_infill)):
+            reset_lower = desired_ranges[i][0]
+            reset_higher = desired_ranges[i][1]
+            self.ranged_infill[i] = (reset_lower, reset_higher, self.ranged_infill[i][2])
+
+        # Reverse the order of the ranges
+        if reverse:
+            self.ranged_walls.reverse()
+            self.ranged_infill.reverse()
 
     # Static method to compute the distance between two points
     @staticmethod
