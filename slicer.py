@@ -3,34 +3,34 @@ import layer
 
 
 class Slicer:
-    def __init__(self, root, min, max, voxel_size, center_point=pv.Vec2(0, 0),
-                 purge_min=pv.Point2(0.0, 0.0), purge_max=pv.Point2(260.0, 260.0),
-                 purge_tower_x_spacing=12.0, purge_tower_y_spacing=12.0,
-                 purge_tower_x_size=12.0, purge_tower_y_size=12.0,
-                 interlink=False):
-
+    def __init__(self, root, min, max, voxel_size, settings):
+        self.settings = settings
         self.cross_sectioner = pv.CrossSectionSlicer(root, min, max, voxel_size)
         self.min = min
         self.max = max
         self.voxel_size = voxel_size
         self.model_bottom_z = min.z
-        self.center_point = center_point
-        self.purge_min = purge_min
-        self.purge_max = purge_max
-        self.purge_tower_x_spacing = purge_tower_x_spacing
-        self.purge_tower_y_spacing = purge_tower_y_spacing
-        self.purge_tower_x_size = purge_tower_x_size
-        self.purge_tower_y_size = purge_tower_y_size
+        self.purge_min = settings["purge_tower_settings"]["min"]
+        self.purge_max = settings["purge_tower_settings"]["max"]
+        self.purge_tower_x_size = settings["purge_tower_settings"]["size"][0]
+        self.purge_tower_y_size = settings["purge_tower_settings"]["size"][1]
+        self.purge_tower_x_spacing = self.purge_tower_x_size + settings["purge_tower_settings"]["spacing"][0]
+        self.purge_tower_y_spacing = self.purge_tower_y_size + settings["purge_tower_settings"]["spacing"][1]
+        self.interlink = settings["gradient_settings"]["interlink"]
         self.purge_tower_centers = []
-        self.interlink = interlink
+
+        # Compute the cetnering point based on the bed size
+        printer_min = settings["printer_settings"]["dimensions"]["min"]
+        printer_max = settings["printer_settings"]["dimensions"]["max"]
+        self.center_point = ((printer_max[0] - printer_min[0]) / 2, (printer_max[1] - printer_min[1]) / 2)
 
         self.layers = []
 
-    def slice(self, ranges, layer_height, bead_width, num_walls=1, infill_density=0):
+    def slice(self, ranges):
         print("1. Generating purge tower base locations")
         self.compute_purge_tower_centers(ranges)
         print("2. Generating paths")
-        self.generate_paths(layer_height, bead_width, num_walls, infill_density)
+        self.generate_paths()
         print("3. Cutting into ranges")
         self.cut_into_ranges(ranges)
         print("4. Connecting paths")
@@ -40,10 +40,10 @@ class Slicer:
 
     def compute_purge_tower_centers(self, ranges):
         self.purge_tower_centers = []
-        min_x = self.purge_min.x()
-        min_y = self.purge_min.y()
-        max_x = self.purge_max.x()
-        max_y = self.purge_max.y()
+        min_x = self.purge_min[0] - self.center_point[0]
+        min_y = self.purge_min[1] - self.center_point[1]
+        max_x = self.purge_max[0] - self.center_point[0]
+        max_y = self.purge_max[1] - self.center_point[1]
 
         anchor = pv.Point2(min_x + self.purge_tower_x_spacing / 2, min_y + self.purge_tower_y_spacing / 2)
         possible_centers = []
@@ -59,7 +59,12 @@ class Slicer:
         for i in range(len(ranges)):
             self.purge_tower_centers.append((ranges[i][0], ranges[i][1], possible_centers[i]))
 
-    def generate_paths(self, layer_height, bead_width, num_walls=1, infill_density=0):
+    def generate_paths(self):
+        layer_height = self.settings["slicer_settings"]["layer_height"]
+        bead_width = self.settings["printer_settings"]["nozzle_diameter"]
+        num_walls = self.settings["slicer_settings"]["num_walls"]
+        infill_density = self.settings["slicer_settings"]["infill_density"] / 100.0
+
         min_z = self.min.z
         max_z = self.max.z
         z = min_z
@@ -101,15 +106,27 @@ class Slicer:
             index += 1
 
     def center_paths(self):
-        xy_translation = pv.Point2(self.center_point.x() - (self.max.x - self.min.x) / 2,
-                                   self.center_point.y() - (self.max.y - self.min.y) / 2)
-        z_translation = -self.model_bottom_z + 0.2
+        xy_translation = pv.Point2(self.center_point[0], self.center_point[1])
+        z_translation = -self.model_bottom_z + self.settings["slicer_settings"]["layer_height"]
         for l in self.layers:
             l.translate_paths(xy_translation, z_translation)
 
-    def write_gcode(self, gcode_writer, extruder_temperature=200, bed_temperature=60):
+    def get_bounds(self):
+        min = [float('inf'), float('inf')]
+        max = [-float('inf'), -float('inf')]
+        for l in self.layers:
+            lmin, lmax = l.get_bounds()
+            for i in range(2):
+                if lmin[i] < min[i]:
+                    min[i] = lmin[i]
+                if lmax[i] > max[i]:
+                    max[i] = lmax[i]
+        return min, max
+
+    def write_gcode(self, gcode_writer):
         print("6. Writing GCode")
-        gcode_writer.write_header(extruder_temperature, bed_temperature)
+        pmin, pmax = self.get_bounds()
+        gcode_writer.write_header(pmin, pmax)
         i = 1
         for l in self.layers:
             print("\t-> Writing layer {}".format(i))
@@ -125,6 +142,6 @@ class Slicer:
         for l in self.layers:
             l.visualize_ranged_geometry(ranges)
 
-    def visualize_paths(self):
+    def visualize_paths(self, printer_bounds=None):
         for l in self.layers:
-            l.visualize_paths()
+            l.visualize_paths(printer_bounds)

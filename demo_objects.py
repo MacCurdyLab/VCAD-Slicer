@@ -1,12 +1,12 @@
 from libvcad import pyvcad as pv
 
-def parse_from_file(file_path):
+def parse_from_file(file_path, config_path):
     # Load the vcad script text from the file
     with open(file_path, "r") as vcad_file:
         vcad_script = vcad_file.read()
         # Parse the vcad script
         try:
-            [meta, root] = pv.parse_vcad_text(vcad_script)
+            [meta, root] = pv.parse_vcad_text(vcad_script, config_path)
             root.prepare()
             return meta, root
         except Exception as e:

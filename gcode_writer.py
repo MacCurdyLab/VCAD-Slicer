@@ -2,38 +2,53 @@ import math
 
 
 class GCodeWriter:
-    def __init__(self, filename, filament_diameter, layer_height, bead_width, flow_rate=1.0,
-                 start_script="gcode_scripts/start.gcode", end_script="gcode_scripts/end.gcode"):
+    def __init__(self, filename, settings):
         # Make a new file for writing
         self.file = open(filename, "w")
 
-        self.filament_diameter = filament_diameter
-        self.layer_height = layer_height
-        self.bead_width = bead_width
-        self.flow_rate = flow_rate
+        self.settings = settings
+
+        self.filament_diameter = settings["printer_settings"]["filament_diameter"]
+        self.bead_width = settings["printer_settings"]["nozzle_diameter"]
+        self.desired_extrusion_feedrate = settings["printer_settings"]["speeds"]["first_layer_extrusion"]
+        self.travel_speed = settings["printer_settings"]["speeds"]["travel"]
+        self.start_script = settings["printer_settings"]["start_code_path"]
+        self.end_script = settings["printer_settings"]["end_code_path"]
+
+        self.use_retraction = settings["printer_settings"]["retraction"]["use"]
+        self.retraction_required_distance = settings["printer_settings"]["retraction"]["required_distance"]
+        self.retraction_length = settings["printer_settings"]["retraction"]["length"]
+        self.retraction_speed = settings["printer_settings"]["retraction"]["speed"]
+        self.un_retraction_length = settings["printer_settings"]["retraction"]["un_retract_length"]
+        self.un_retraction_speed = settings["printer_settings"]["retraction"]["un_retract_speed"]
+
+        self.layer_height = settings["slicer_settings"]["layer_height"]
+        self.flow_rate = settings["material_settings"]["flow_rate"] / 100.0
+        self.extruder_temperature = self.settings["material_settings"]["extruder_temperature"]
+        self.idle_temperature = settings["material_settings"]["idle_temperature"]
+        self.bed_temperature = self.settings["material_settings"]["bed_temperature"]
+        self.mode = settings["gradient_settings"]["mode"]
+
         self.current_x = 0
         self.current_y = 0
         self.current_z = 0
         self.current_lower = 0
         self.current_higher = 0
         self.current_layer_number = 0
-        self.current_feedrate = 2400
-        self.desired_extrusion_feedrate = 1200
-        self.travel_speed = 9000
-        self.idle_temperature = 70
-        self.use_retraction = True
-        self.start_script = start_script
-        self.end_script = end_script
-        self.mode = "temperature"
+        self.current_feedrate = self.desired_extrusion_feedrate
 
-    def write_header(self, extruder_temperature=200, bed_temperature=60):
+    def write_header(self, pmin, pmax):
         file_path = self.start_script
 
         replacement_dict = {
-            "[bed_temperature]": str(bed_temperature),
-            "[extruder_temperature]": str(extruder_temperature),
+            "[bed_temperature]": str(self.bed_temperature),
+            "[extruder_temperature]": str(self.extruder_temperature),
             "[travel_speed]": str(self.travel_speed),
-            "[idle_temperature]": str(self.idle_temperature)
+            "[idle_temperature]": str(self.idle_temperature),
+            "[min_x]": str(pmin[0]),
+            "[min_y]": str(pmin[1]),
+            "[max_x]": str(pmax[0]),
+            "[max_y]": str(pmax[1])
         }
 
         # Read the start gcode from the file
@@ -66,8 +81,23 @@ class GCodeWriter:
         filament_radius = filament_diameter / 2
         filament_length = volume_to_extrude / (math.pi * filament_radius ** 2)
 
-
         return filament_length * self.flow_rate
+
+    def write_retraction(self):
+        self.file.write("G1 E-{:.4f} F{:.4f} ; Retract\n".format(self.retraction_length, self.retraction_speed))
+        self.current_feedrate = self.retraction_speed
+
+    def write_un_retraction(self):
+        self.file.write("G1 E{:.4f} F{:.4f} ; Unretract\n".format(self.un_retraction_length, self.un_retraction_speed))
+        self.current_feedrate = self.un_retraction_speed
+
+    def write_big_retraction(self):
+        self.file.write("G1 E-{:.4f} F{:.4f} ; Big retract\n".format(self.retraction_length * 4, self.retraction_speed))
+        self.current_feedrate = self.retraction_speed
+
+    def write_big_un_retraction(self):
+        self.file.write("G1 E{:.4f} F{:.4f} ; Big unretract\n".format(self.un_retraction_length * 4, self.un_retraction_speed))
+        self.current_feedrate = self.un_retraction_speed
 
     def write_travel(self, segment):
         start = segment.source()
@@ -78,26 +108,18 @@ class GCodeWriter:
         length = math.sqrt((end.x() - start.x()) ** 2 + (end.y() - start.y()) ** 2)
 
         should_retract = False
-        if length > 6.0 and self.use_retraction:
+        if length > self.retraction_required_distance and self.use_retraction:
             should_retract = True
 
-        retract_speed = 2100
-        retract_length = 6.0
-        un_retract_speed = 2100
-        un_retract_length = 6.0
-        travel_speed = self.travel_speed
-
         if should_retract:
-            self.file.write("G1 E-{:.4f} F{:.4f} ; Retract\n".format(retract_length, retract_speed))
-            self.current_feedrate = retract_speed
+            self.write_retraction()
 
         # Write the gcode for a travel move
-        self.file.write("G0 X{:.4f} Y{:.4f} Z{:.4f} F{:.4f}; Travel\n".format(self.current_x, self.current_y, self.current_z, travel_speed))
-        self.current_feedrate = travel_speed
+        self.file.write("G0 X{:.4f} Y{:.4f} Z{:.4f} F{:.4f}; Travel\n".format(self.current_x, self.current_y, self.current_z, self.travel_speed))
+        self.current_feedrate = self.travel_speed
 
         if should_retract:
-            self.file.write("G1 E{:.4f} F{:.4f} ; Unretract\n".format(un_retract_length, un_retract_speed))
-            self.current_feedrate = un_retract_speed
+            self.write_un_retraction()
 
     def write_extrusion_line(self, segment):
         end = segment.target()
@@ -117,7 +139,7 @@ class GCodeWriter:
         self.current_z = layer.get_z_height()
 
         # Write the z change
-        self.write_comment("Layer {}".format(self.current_layer_number))
+        self.write_comment("|===== Layer {} =====|".format(self.current_layer_number))
 
         # Set the fan speed based on the layer number
         if self.current_layer_number == 1:
@@ -133,12 +155,22 @@ class GCodeWriter:
 
         # Set feedrate settings based on the layer number
         if self.current_layer_number == 1:
-            self.desired_extrusion_feedrate = 1200
+            self.desired_extrusion_feedrate = self.settings["printer_settings"]["speeds"]["first_layer_extrusion"]
         else:
-            self.desired_extrusion_feedrate = 2400
+            self.desired_extrusion_feedrate = self.settings["printer_settings"]["speeds"]["other_layer_extrusion"]
+
+        # If this was the first layer, do initial un-retraction
+        if self.current_layer_number == 1:
+            self.file.write("G1 E1.2 F2400\t ;Initial un-retract\n")
+
+        if self.use_retraction:
+            self.write_retraction()
 
         # Go to new z height
         self.file.write("G1 Z{:.4f}\n".format(self.current_z))
+
+        if self.use_retraction:
+            self.write_un_retraction()
 
         for lower, higher, is_extrusion, polyline in layer.get_paths():
             for segment in polyline.segments():
@@ -184,14 +216,21 @@ class GCodeWriter:
             self.write_comment("Starting temperature of {:.4f} as midpoint for range: {:.4f} to {:.4f}".format(
                 middle_point_temperature, self.current_lower, self.current_higher))
 
+            self.write_big_retraction()
+
+            self.file.write("G1 F21000\t ; Setting travel speed\n")
+            self.current_feedrate = 21000
+
             # Park the tool so that the nozzle is sealed
             self.file.write("P0 S1 L2 D0\t; Park the tool\n")
 
             # Write the gcode for a temperature change using the M104 command and wait
-            self.file.write("M109 T0 S{:.4f}\t; Set new temp and wait\n".format(middle_point_temperature))
+            self.file.write("M109 T0 R{:.4f}\t; Set new temp and wait\n".format(middle_point_temperature))
 
             # Write the gcode for a flow rate change using the M221 command
             self.file.write("M221 T0 S{:.4f}\t; Set flow rate to compensate for expansion\n".format(flow_rate))
 
             # Pick the tool back up
             self.file.write("T0 S1 L0 D0\t; Pick the tool back up and resume\n")
+
+            self.write_big_un_retraction()

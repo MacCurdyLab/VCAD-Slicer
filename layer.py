@@ -142,7 +142,6 @@ class Layer:
                 polyline.append(new_polyline)
                 return
 
-
     def cut_into_ranges_interdigitated(self, desired_ranges, slicer, reverse):
         overlap_amount = 0.025
 
@@ -310,6 +309,23 @@ class Layer:
             if len(self.connected_paths) > 0:
                 previous_end = self.connected_paths[-1][3].points()[-1]
 
+    def get_bounds(self):
+        min = [float('inf'), float('inf')]
+        max = [-float('inf'), -float('inf')]
+        # Iterate over all of the paths to find the min and max x and y values
+        for lower, higher, is_extrusion, polyline in self.connected_paths:
+            for point in polyline.points():
+                if point.x() < min[0]:
+                    min[0] = point.x()
+                if point.y() < min[1]:
+                    min[1] = point.y()
+                if point.x() > max[0]:
+                    max[0] = point.x()
+                if point.y() > max[1]:
+                    max[1] = point.y()
+
+        return min, max
+
     def translate_paths(self, xy_translation, z_translation):
         for lower, higher, is_extrusion, polyline in self.connected_paths:
             polyline.translate(xy_translation)
@@ -342,5 +358,5 @@ class Layer:
                 lines.append((line, (lower + higher) / 2.0))
         vis.plot_labeled_polygons_and_polylines([], lines, figsize=(20, 12))
 
-    def visualize_paths(self):
-        vis.plot_labeled_paths(self.connected_paths)
+    def visualize_paths(self, printer_bounds=None):
+        vis.plot_labeled_paths(self.connected_paths, printer_bounds)

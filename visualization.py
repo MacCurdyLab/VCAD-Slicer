@@ -69,7 +69,7 @@ def plot_polygons_and_polylines(polygons, polylines, figsize=(15, 15)):
     plt.show()
 
 
-def plot_labeled_paths(labeled_paths, figsize=(15, 15)):
+def plot_labeled_paths(labeled_paths, printer_bounds=None, figsize=(15, 15)):
     plt.figure(figsize=figsize)
 
     for lower, higher, is_extrusion, path in labeled_paths:
@@ -86,7 +86,8 @@ def plot_labeled_paths(labeled_paths, figsize=(15, 15)):
                          linestyle='--', linewidth=3.5)
 
     # Set x and y of the plot to be from 0 to 260
-    plt.xlim(0, 255)
-    plt.ylim(0, 255)
+    if printer_bounds:
+        plt.xlim(printer_bounds[0], printer_bounds[2])
+        plt.ylim(printer_bounds[1], printer_bounds[3])
 
     plt.show()

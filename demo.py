@@ -1,40 +1,21 @@
+import json
 import time
 import slicer
 import demo_objects as do
 import gcode_writer as gw
-from libvcad import pyvcad as pv
+
+# Paths
+settings_path = "settings/prusa_xl_settings.json"
+output_file = "output/output.gcode"
+
+# Load json into dictionary
+with open(settings_path, 'r') as file:
+    print("Loading settings from {}".format(settings_path))
+    settings = json.load(file)
 
 # Object to slice
-# meta, root = do.double_diff_bar()
-meta, root = do.parse_from_file("test.vcad")
-
-# Output
-output_file = "output.gcode"
-
-# Settings for slicing
-interlink = True
-extruder_temperature = 210
-bed_temperature = 60
-flow_rate = 0.97
-layer_height = 0.2
-filament_diameter = 1.75
-bead_width = 0.4
-num_walls = 12
-infill_density_percentage = 1.0
-num_regions = 4
-center_point = pv.Point2(175.0, 100.0)
-visualize_paths = False
-start_script = "gcode_scripts/start_xl.gcode"
-end_script = "gcode_scripts/end_xl.gcode"
-
-# Purge tower settings
-min_coord = pv.Point2(-50, 15.0)
-max_coord = pv.Point2(130.0, 200.0)
-x_size = 14.0
-y_size = 75.0
-x_spacing = x_size + 1.75
-y_spacing = y_size + 1.75
-
+meta, root = do.parse_from_file(settings["object_settings"]["vcad_script_path"],
+                                settings["object_settings"]["vcad_config_path"])
 
 def generate_linear_ranges(num_ranges, min, max):
     ranges = []
@@ -60,38 +41,30 @@ print("Min: ({},{},{})".format(meta.min.x, meta.min.y, meta.min.z))
 print("Max: ({},{},{})".format(meta.max.x, meta.max.y, meta.max.z))
 print("Voxel size: ({},{},{})".format(meta.voxel_size.x, meta.voxel_size.y, meta.voxel_size.z))
 print("With total number of voxels: {}".format(total_voxels))
-print("\nUsing the following slicing parameters:")
-print("Layer height: {}".format(layer_height))
-print("Bead width: {}".format(bead_width))
-print("Number of walls: {}".format(num_walls))
-print("Infill density: {}%".format(infill_density_percentage))
 print("\nSlicing...")
 
 # Make gradient ranges
-# ranges = [(0.0, 0.25), (0.25, 0.5), (0.5, 0.75), (0.75, 1.0)]
+num_regions = settings["gradient_settings"]["num_regions"]
 ranges = generate_linear_ranges(num_regions, 0.0, 1.0)
 
 # Start timer for slicing
 start = time.time()
 
 # Perform slice
-slicer = slicer.Slicer(root, meta.min, meta.max, meta.voxel_size, center_point=center_point,
-                       purge_min=min_coord, purge_max=max_coord,
-                       purge_tower_x_spacing=x_spacing, purge_tower_y_spacing=y_spacing,
-                       purge_tower_x_size=x_size, purge_tower_y_size=y_size, interlink=interlink)
-slicer.slice(ranges=ranges,
-             layer_height=layer_height, bead_width=bead_width,
-             num_walls=num_walls, infill_density=infill_density_percentage)
+slicer = slicer.Slicer(root, meta.min, meta.max, meta.voxel_size, settings)
+slicer.slice(ranges=ranges)
 
 # Optional: visualize the paths
+visualize_paths = settings["slicer_settings"]["visualize_paths"]
 if visualize_paths:
-    slicer.visualize_paths()
+    pmin = settings["printer_settings"]["dimensions"]["min"]
+    pmax = settings["printer_settings"]["dimensions"]["max"]
+    printer_bounds = [pmin[0], pmin[1], pmax[0], pmax[1]]
+    slicer.visualize_paths(printer_bounds)
 
 # Write the gcode
-gcode_writer = gw.GCodeWriter(output_file, filament_diameter=filament_diameter, layer_height=layer_height,
-                              bead_width=bead_width, flow_rate=flow_rate,
-                              start_script=start_script, end_script=end_script)
-slicer.write_gcode(gcode_writer, extruder_temperature=extruder_temperature, bed_temperature=bed_temperature)
+gcode_writer = gw.GCodeWriter(output_file, settings)
+slicer.write_gcode(gcode_writer)
 
 print("GCode written to {}".format(output_file))
 print("Done! Slicing took {} seconds".format(time.time() - start))

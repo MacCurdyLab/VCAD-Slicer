@@ -1,0 +1,52 @@
+{
+  "object_settings": {
+    "vcad_script_path": "vcad_demo_files/dogbone.vcad",
+    "vcad_config_path": "vcad_configs/testing.json"
+  },
+  "material_settings": {
+    "extruder_temperature": 190,
+    "idle_temperature": 70,
+    "bed_temperature": 60,
+    "flow_rate": 100
+  },
+  "printer_settings": {
+    "dimensions": {
+      "min": [0.0, 0.0, 0.0],
+      "max": [360.0, 360.0, 360.0]
+    },
+    "filament_diameter": 1.75,
+    "nozzle_diameter": 0.4,
+    "speeds": {
+      "travel": 24000,
+      "first_layer_extrusion": 1200,
+      "other_layer_extrusion": 2400
+    },
+    "retraction": {
+      "use": true,
+      "required_distance": 1.5,
+      "length": 0.8,
+      "speed": 2100,
+      "un_retract_length": 0.8,
+      "un_retract_speed": 1500
+    },
+    "start_code_path": "gcode_scripts/start_xl.gcode",
+    "end_code_path": "gcode_scripts/end_xl.gcode"
+  },
+  "slicer_settings": {
+    "layer_height": 0.2,
+    "num_walls": 12,
+    "infill_density": 100,
+    "visualize_paths": false
+  },
+  "gradient_settings": {
+    "mode": "temperature",
+    "interlink": true,
+    "num_regions": 4
+  },
+  "purge_tower_settings": {
+    "min": [100, 200],
+    "max": [300.0, 300.0],
+    "size": [14.0, 75.0],
+    "spacing": [3, 3]
+  }
+}
