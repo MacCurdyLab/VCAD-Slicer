@@ -93,7 +93,7 @@ class Slicer:
         for l in self.layers:
             print("\t-> Cutting layer {} into ranges".format(index))
             if self.interlink:
-                l.cut_into_ranges_interdigitated(desired_ranges, self.cross_sectioner, index % 2 == 0)
+                l.cut_into_ranges_interdigitated(desired_ranges, self.cross_sectioner, index % 2 == 0, self.settings["gradient_settings"]["overlap_amount"])
             else:
                 l.cut_into_ranges(desired_ranges, self.cross_sectioner, index % 2 == 0)
             index += 1
@@ -107,6 +107,11 @@ class Slicer:
 
     def center_paths(self):
         xy_translation = pv.Point2(self.center_point[0], self.center_point[1])
+
+        user_translate = self.settings["object_settings"]["translation"]
+        if user_translate is not None:
+            xy_translation = pv.Point2(xy_translation.x() + user_translate[0], xy_translation.y() + user_translate[1])
+
         z_translation = -self.model_bottom_z + self.settings["slicer_settings"]["layer_height"]
         for l in self.layers:
             l.translate_paths(xy_translation, z_translation)

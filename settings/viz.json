@@ -1,0 +1,56 @@
+{
+  "object_settings": {
+    "name": "viz",
+    "vcad_script_path": "vcad_demo_files/viz.vcad",
+    "vcad_config_path": "vcad_configs/testing.json",
+    "translation": [0.0, -10.0]
+  },
+  "material_settings": {
+    "extruder_temperature": 205,
+    "idle_temperature": 70,
+    "bed_temperature": 60,
+    "flow_rate": 100
+  },
+  "printer_settings": {
+    "dimensions": {
+      "min": [0.0, 0.0, 0.0],
+      "max": [255.0, 255.0, 260.0]
+    },
+    "filament_diameter": 1.75,
+    "nozzle_diameter": 0.46,
+    "speeds": {
+      "travel": 24000,
+      "first_layer_extrusion": 1200,
+      "other_layer_extrusion": 2400
+    },
+    "retraction": {
+      "use": true,
+      "required_distance": 1.5,
+      "length": 6.0,
+      "speed": 2100,
+      "un_retract_length": 6.0,
+      "un_retract_speed": 1800
+    },
+    "start_code_path": "gcode_scripts/start_mizar.gcode",
+    "end_code_path": "gcode_scripts/end_mizar.gcode"
+  },
+  "slicer_settings": {
+    "layer_height": 0.2,
+    "num_walls": 30,
+    "infill_density": 100,
+    "visualize_paths": true
+  },
+  "gradient_settings": {
+    "mode": "mixture",
+    "material": "PLA",
+    "interlink": false,
+    "overlap_amount": 0.05,
+    "num_regions": 4
+  },
+  "purge_tower_settings": {
+    "min": [108.5, 133],
+    "max": [250.0, 300.0],
+    "size": [8.0, 18.0],
+    "spacing": [1.5, 1.5]
+  }
+}

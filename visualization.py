@@ -70,6 +70,7 @@ def plot_polygons_and_polylines(polygons, polylines, figsize=(15, 15)):
 
 
 def plot_labeled_paths(labeled_paths, printer_bounds=None, figsize=(15, 15)):
+    plot_travels = False
     plt.figure(figsize=figsize)
 
     for lower, higher, is_extrusion, path in labeled_paths:
@@ -80,7 +81,7 @@ def plot_labeled_paths(labeled_paths, printer_bounds=None, figsize=(15, 15)):
             for i in range(len(points) - 1):
                 plt.arrow(points[i][0], points[i][1], points[i + 1][0] - points[i][0], points[i + 1][1] - points[i][1],
                           head_width=0.0, length_includes_head=True, color=color, linewidth=3.5)
-        else:
+        elif plot_travels:
             for i in range(len(points) - 1):
                 plt.plot([points[i][0], points[i + 1][0]], [points[i][1], points[i + 1][1]], color=color,
                          linestyle='--', linewidth=3.5)
@@ -90,4 +91,33 @@ def plot_labeled_paths(labeled_paths, printer_bounds=None, figsize=(15, 15)):
         plt.xlim(printer_bounds[0], printer_bounds[2])
         plt.ylim(printer_bounds[1], printer_bounds[3])
 
+    plt.savefig('output/graph/whole.svg', format='svg')
     plt.show()
+
+# def plot_labeled_paths(labeled_paths, printer_bounds=None, figsize=(18, 18)):
+#
+#     ranges = [(0, 0.25), (0.25, 0.5), (0.5, 0.75), (0.75, 1.0)]
+#
+#     index = 0
+#     for r in ranges:
+#         plt.figure(figsize=figsize)
+#         for lower, higher, is_extrusion, path in labeled_paths:
+#             if lower == r[0]:
+#                 points = [(p.x(), p.y()) for p in path.points()]
+#                 color = cm.viridis((lower + higher) / 2.0)
+#                 # Plot extrusion paths as arrows. Plot travels as dashed lines
+#                 if is_extrusion:
+#                     for i in range(len(points) - 1):
+#                         plt.arrow(points[i][0], points[i][1], points[i + 1][0] - points[i][0],
+#                                   points[i + 1][1] - points[i][1],
+#                                   head_width=0.0, length_includes_head=True, color=color, linewidth=3.5)
+#
+#         plt.xlim(100, 155)
+#         plt.ylim(100, 155)
+#
+#         # Save plot as SVG
+#         plt.savefig('output/graph/part_{}.svg'.format(index), format='svg')
+#         plt.show()
+#         index += 1
+#
+#     exit(0)

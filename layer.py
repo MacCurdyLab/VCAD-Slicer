@@ -136,14 +136,16 @@ class Layer:
             if Layer.distance(new_polyline_end_pt, polyline_start_pt) < 0.001:
                 # Prepend the new polyline to the existing polyline
                 polyline.prepend(new_polyline)
-                return
+                return True
             elif Layer.distance(polyline_end_pt, new_polyline_start_pt) < 0.001:
                 # Append the new polyline to the existing polyline
                 polyline.append(new_polyline)
-                return
+                return True
 
-    def cut_into_ranges_interdigitated(self, desired_ranges, slicer, reverse):
-        overlap_amount = 0.025
+        return False
+
+    def cut_into_ranges_interdigitated(self, desired_ranges, slicer, reverse, overlap):
+        overlap_amount = overlap
 
         adjusted_ranges = []
         # Insert a range in between existing ranges that has a width of the overlap amount
@@ -189,9 +191,11 @@ class Layer:
             wall_index = 0
             for polyline in overlap_wall:
                 if wall_index % 2 == 0:
-                    self.find_and_stitch_wall(left_walls, polyline)
+                    if not self.find_and_stitch_wall(left_walls, polyline):
+                        left_walls.append(polyline)
                 else:
-                    self.find_and_stitch_wall(right_walls, polyline)
+                    if not self.find_and_stitch_wall(right_walls, polyline):
+                        right_walls.append(polyline)
                 wall_index += 1
 
         # Remove the overlap walls

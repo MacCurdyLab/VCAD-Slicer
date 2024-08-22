@@ -1,13 +1,15 @@
 {
   "object_settings": {
-    "vcad_script_path": "vcad_demo_files/dogbone.vcad",
-    "vcad_config_path": "vcad_configs/testing.json"
+    "name": "output",
+    "vcad_script_path": "vcad_demo_files/gear.vcad",
+    "vcad_config_path": "vcad_configs/testing.json",
+    "translation": [0.0, 0.0]
   },
   "material_settings": {
     "extruder_temperature": 190,
     "idle_temperature": 70,
     "bed_temperature": 60,
-    "flow_rate": 100
+    "flow_rate": 120
   },
   "printer_settings": {
     "dimensions": {
@@ -34,19 +36,21 @@
   },
   "slicer_settings": {
     "layer_height": 0.2,
-    "num_walls": 12,
+    "num_walls": 30,
     "infill_density": 100,
     "visualize_paths": false
   },
   "gradient_settings": {
     "mode": "temperature",
-    "interlink": true,
+    "material": "PLA",
+    "interlink": false,
+    "overlap_amount": 0.25,
     "num_regions": 4
   },
   "purge_tower_settings": {
-    "min": [100, 200],
-    "max": [300.0, 300.0],
-    "size": [14.0, 75.0],
+    "min": [120, 235],
+    "max": [300.0, 320.0],
+    "size": [30.0, 30.0],
     "spacing": [3, 3]
   }
 }

@@ -4,14 +4,19 @@ import slicer
 import demo_objects as do
 import gcode_writer as gw
 
+import os
+plugin_path = os.path.join(os.path.dirname(__file__), "plugins")
+os.environ["QT_PLUGIN_PATH"] = plugin_path
+
 # Paths
-settings_path = "settings/prusa_xl_settings.json"
-output_file = "output/output.gcode"
+settings_path = "settings/mizar_complex_vase.json"
 
 # Load json into dictionary
 with open(settings_path, 'r') as file:
     print("Loading settings from {}".format(settings_path))
     settings = json.load(file)
+
+output_file = "output/" + settings["object_settings"]["name"] + ".gcode"
 
 # Object to slice
 meta, root = do.parse_from_file(settings["object_settings"]["vcad_script_path"],

@@ -206,12 +206,18 @@ class GCodeWriter:
         elif self.mode == "temperature":
             middle_point = (self.current_lower + self.current_higher) / 2.0
 
-            # Convert mixture to temperature using a linear mapping (190 to 220 degrees)
-            middle_point_temperature = 190 + middle_point * 30
-
-            # Compute new flow rate modifier based on the temperature (and therefore the foaming expansion)
-            # flow_rate = ((0.0007125 * (temp^2)) - (0.309775 * temp) + 34.23325) * 100.0
-            flow_rate = ((0.0007125 * (middle_point_temperature ** 2)) - (0.309775 * middle_point_temperature) + 34.23325) * 100.0
+            if self.settings["gradient_settings"]["material"] == "PLA":
+                # Convert mixture to temperature using a linear mapping (190 to 220 degrees)
+                middle_point_temperature = 190 + middle_point * 60
+                # Compute new flow rate modifier based on the temperature (and therefore the foaming expansion)
+                flow_rate = ((0.000008354790481 * (middle_point_temperature ** 3)) - (0.005370745309190 * (middle_point_temperature ** 2)) + (1.133743061069320 * middle_point_temperature) - 77.813511184263700) * 100.0
+            elif self.settings["gradient_settings"]["material"] == "TPU":
+                # Convert mixture to temperature using a linear mapping (190 to 220 degrees)
+                middle_point_temperature = 190 + middle_point * 30
+                # Compute new flow rate modifier based on the temperature (and therefore the foaming expansion)
+                flow_rate = ((0.0003096373 * (middle_point_temperature ** 2)) - (0.1384006081 * middle_point_temperature) + 15.9560113114) * 100.0
+            else:
+                raise ValueError("Material not supported")
 
             self.write_comment("Starting temperature of {:.4f} as midpoint for range: {:.4f} to {:.4f}".format(
                 middle_point_temperature, self.current_lower, self.current_higher))

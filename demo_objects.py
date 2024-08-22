@@ -7,7 +7,7 @@ def parse_from_file(file_path, config_path):
         # Parse the vcad script
         try:
             [meta, root] = pv.parse_vcad_text(vcad_script, config_path)
-            root.prepare()
+            root.prepare(pv.Vec3(1,1,1))
             return meta, root
         except Exception as e:
             print("Error parsing vcad script: ", e)
