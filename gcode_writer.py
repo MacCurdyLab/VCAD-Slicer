@@ -140,6 +140,8 @@ class GCodeWriter:
 
         # Write the z change
         self.write_comment("|===== Layer {} =====|".format(self.current_layer_number))
+        self.write_comment("LAYER_CHANGE")
+        self.write_comment("HEIGHT: {:.4f}".format(self.current_z))
 
         # Set the fan speed based on the layer number
         if self.current_layer_number == 1:
@@ -182,7 +184,7 @@ class GCodeWriter:
                     self.write_travel(segment)
 
     def write_comment(self, comment):
-        self.file.write("; {}\n".format(comment))
+        self.file.write(";{}\n".format(comment))
 
     def do_mixing_ratios_diff(self, new_ranges):
         if new_ranges[0] != self.current_lower or new_ranges[1] != self.current_higher:

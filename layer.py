@@ -133,11 +133,11 @@ class Layer:
             new_polyline_start_pt = new_polyline.points()[0]
             new_polyline_end_pt = new_polyline.points()[-1]
 
-            if Layer.distance(new_polyline_end_pt, polyline_start_pt) < 0.001:
+            if Layer.distance(new_polyline_end_pt, polyline_start_pt) < 0.05:
                 # Prepend the new polyline to the existing polyline
                 polyline.prepend(new_polyline)
                 return True
-            elif Layer.distance(polyline_end_pt, new_polyline_start_pt) < 0.001:
+            elif Layer.distance(polyline_end_pt, new_polyline_start_pt) < 0.05:
                 # Append the new polyline to the existing polyline
                 polyline.append(new_polyline)
                 return True
@@ -193,10 +193,13 @@ class Layer:
                 if wall_index % 2 == 0:
                     if not self.find_and_stitch_wall(left_walls, polyline):
                         left_walls.append(polyline)
+                    else:
+                        wall_index += 1
                 else:
                     if not self.find_and_stitch_wall(right_walls, polyline):
                         right_walls.append(polyline)
-                wall_index += 1
+                    else:
+                        wall_index += 1
 
         # Remove the overlap walls
         self.ranged_walls = [self.ranged_walls[i] for i in range(0, len(self.ranged_walls), 2)]
@@ -213,11 +216,22 @@ class Layer:
             right_infill = self.ranged_infill[i + 1][2]
 
             infill_index = 0
+            last_avg = 0
+            coin_flip = True
             for polyline in overlap_infill:
-                if infill_index % 2 == 0:
-                    self.find_and_stitch_wall(left_infill, polyline)
+                polyline_points = polyline.points()
+                # Compute average y value of the polyline points
+                average_y = sum([point.y() for point in polyline_points]) / len(polyline_points)
+                # If average y changed, flip the coin
+                if average_y != last_avg:
+                    coin_flip = not coin_flip
+                    last_avg = average_y
+                if coin_flip:
+                    if not self.find_and_stitch_wall(left_infill, polyline):
+                        left_infill.append(polyline)
                 else:
-                    self.find_and_stitch_wall(right_infill, polyline)
+                    if not self.find_and_stitch_wall(right_infill, polyline):
+                        right_infill.append(polyline)
                 infill_index += 1
 
         # Remove the overlap infill

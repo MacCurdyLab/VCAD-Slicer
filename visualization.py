@@ -91,7 +91,6 @@ def plot_labeled_paths(labeled_paths, printer_bounds=None, figsize=(15, 15)):
         plt.xlim(printer_bounds[0], printer_bounds[2])
         plt.ylim(printer_bounds[1], printer_bounds[3])
 
-    plt.savefig('output/graph/whole.svg', format='svg')
     plt.show()
 
 # def plot_labeled_paths(labeled_paths, printer_bounds=None, figsize=(18, 18)):
