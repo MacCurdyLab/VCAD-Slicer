@@ -5,7 +5,7 @@ import visualization as vis
 
 class Layer:
     def __init__(self, outline, z_height, bead_width, purge_tower_centers,
-                 purge_tower_x_size, purge_tower_y_size):
+                 purge_tower_x_size, purge_tower_y_size, layer_num):
         self.z_height = z_height
         self.bead_width = bead_width
 
@@ -23,9 +23,13 @@ class Layer:
         self.purge_tower_centers = purge_tower_centers
         self.purge_tower_x_size = purge_tower_x_size
         self.purge_tower_y_size = purge_tower_y_size
+        self.layer_num = layer_num
 
     def get_z_height(self):
         return self.z_height
+
+    def get_layer_num(self):
+        return self.layer_num
 
     def get_paths(self):
         return self.connected_paths

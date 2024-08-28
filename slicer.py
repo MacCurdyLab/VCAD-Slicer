@@ -77,7 +77,7 @@ class Slicer:
             if len(outlines) > 0:
                 print("\t-> Generating paths for layer {} at z = {}".format(layer_num, z))
                 new_layer = layer.Layer(outlines, z, bead_width, self.purge_tower_centers,
-                                        self.purge_tower_x_size, self.purge_tower_y_size)
+                                        self.purge_tower_x_size, self.purge_tower_y_size, layer_num)
                 if num_walls > 0:
                     new_layer.generate_walls(num_walls)
                 if infill_density > 0:
@@ -89,14 +89,13 @@ class Slicer:
             z += layer_height
 
     def cut_into_ranges(self, desired_ranges):
-        index = 1
         for l in self.layers:
-            print("\t-> Cutting layer {} into ranges".format(index))
+            layer_number = l.get_layer_num()
+            print("\t-> Cutting layer {} into ranges".format(layer_number))
             if self.interlink:
-                l.cut_into_ranges_interdigitated(desired_ranges, self.cross_sectioner, index % 2 == 0, self.settings["gradient_settings"]["overlap_amount"])
+                l.cut_into_ranges_interdigitated(desired_ranges, self.cross_sectioner, layer_number % 2 == 0, self.settings["gradient_settings"]["overlap_amount"])
             else:
-                l.cut_into_ranges(desired_ranges, self.cross_sectioner, index % 2 == 0)
-            index += 1
+                l.cut_into_ranges(desired_ranges, self.cross_sectioner, layer_number % 2 == 0)
 
     def connect_paths(self):
         index = 1
