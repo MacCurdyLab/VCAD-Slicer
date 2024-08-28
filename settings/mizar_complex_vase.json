@@ -36,16 +36,16 @@
   },
   "slicer_settings": {
     "layer_height": 0.2,
-    "num_walls": 6,
-    "infill_density": 90,
+    "num_walls": 3,
+    "infill_density": 0,
     "visualize_paths": false
   },
   "gradient_settings": {
-    "mode": "temperature",
+    "mode": "mixture",
     "material": "PLA",
     "interlink": false,
-    "overlap_amount": 0.025,
-    "num_regions": 5
+    "overlap_amount": 0.0125,
+    "num_regions": 8
   },
   "purge_tower_settings": {
     "min": [10, 200],
