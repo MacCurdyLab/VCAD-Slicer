@@ -1,4 +1,5 @@
 import math
+from libvcad import pyvcad as pv
 
 
 class GCodeWriter:
@@ -14,6 +15,8 @@ class GCodeWriter:
         self.travel_speed = settings["printer_settings"]["speeds"]["travel"]
         self.start_script = settings["printer_settings"]["start_code_path"]
         self.end_script = settings["printer_settings"]["end_code_path"]
+        self.volume_max = settings["printer_settings"]["dimensions"]["max"]
+        self.volume_min = settings["printer_settings"]["dimensions"]["min"]
 
         self.use_retraction = settings["printer_settings"]["retraction"]["use"]
         self.retraction_required_distance = settings["printer_settings"]["retraction"]["required_distance"]
@@ -21,6 +24,7 @@ class GCodeWriter:
         self.retraction_speed = settings["printer_settings"]["retraction"]["speed"]
         self.un_retraction_length = settings["printer_settings"]["retraction"]["un_retract_length"]
         self.un_retraction_speed = settings["printer_settings"]["retraction"]["un_retract_speed"]
+        self.coasting_distance = settings["printer_settings"]["coasting_distance"]
 
         self.layer_height = settings["slicer_settings"]["layer_height"]
         self.flow_rate = settings["material_settings"]["flow_rate"] / 100.0
@@ -36,6 +40,7 @@ class GCodeWriter:
         self.current_higher = 0
         self.current_layer_number = 0
         self.current_feedrate = self.desired_extrusion_feedrate
+        self.toolchange_inserted = False
 
     def write_header(self, pmin, pmax):
         file_path = self.start_script
@@ -121,18 +126,57 @@ class GCodeWriter:
         if should_retract:
             self.write_un_retraction()
 
-    def write_extrusion_line(self, segment):
+    def write_extrusion_line(self, segment, distance_to_next_travel):
         end = segment.target()
         self.current_x = end.x()
         self.current_y = end.y()
-        extrusion_amount = self.calculate_extrusion_amount(segment)
 
-        # Write the gcode for an extrusion move
-        if self.current_feedrate != self.desired_extrusion_feedrate:
-            self.current_feedrate = self.desired_extrusion_feedrate
-            self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f} E{:.6f} F{:.4f}\n".format(self.current_x, self.current_y, self.current_z, extrusion_amount, self.current_feedrate))
+        current_segment_length = math.sqrt((end.x() - segment.source().x()) ** 2 + (end.y() - segment.source().y()) ** 2)
+        # extrusion_amount = self.calculate_extrusion_amount(segment)
+        # if self.current_feedrate != self.desired_extrusion_feedrate:
+        #     self.current_feedrate = self.desired_extrusion_feedrate
+        #     self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f} E{:.6f} F{:.4f}\n".format(
+        #         self.current_x, self.current_y, self.current_z, extrusion_amount, self.current_feedrate))
+        # else:
+        #     self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f} E{:.6f}\n".format(
+        #         self.current_x, self.current_y, self.current_z, extrusion_amount))
+
+        if distance_to_next_travel < self.coasting_distance:
+            extrusion_amount = 0
         else:
-            self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f} E{:.6f}\n".format(self.current_x, self.current_y, self.current_z,extrusion_amount))
+            extrusion_amount = self.calculate_extrusion_amount(segment)
+
+        if distance_to_next_travel == current_segment_length:
+            # Split the segment into two parts
+            ratio = (current_segment_length - self.coasting_distance) / current_segment_length
+            mid_x = segment.source().x() + ratio * (segment.target().x() - segment.source().x())
+            mid_y = segment.source().y() + ratio * (segment.target().y() - segment.source().y())
+
+            # First segment with extrusion
+            if self.current_feedrate != self.desired_extrusion_feedrate:
+                self.current_feedrate = self.desired_extrusion_feedrate
+                self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f} E{:.6f} F{:.4f}\n".format(
+                    mid_x, mid_y, self.current_z, extrusion_amount * ratio, self.current_feedrate))
+
+                # Second segment without extrusion
+                self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f} F{:.4f}; Coast\n".format(
+                    self.current_x, self.current_y, self.current_z, self.current_feedrate))
+            else:
+                self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f} E{:.6f}\n".format(
+                    mid_x, mid_y, self.current_z, extrusion_amount * ratio))
+
+                # Second segment without extrusion
+                self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f}; Coast\n".format(
+                    self.current_x, self.current_y, self.current_z))
+        else: # No splitting necessary of this segment
+            if self.current_feedrate != self.desired_extrusion_feedrate:
+                self.current_feedrate = self.desired_extrusion_feedrate
+                self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f} E{:.6f} F{:.4f}\n".format(
+                    self.current_x, self.current_y, self.current_z, extrusion_amount, self.current_feedrate))
+            else:
+                self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f} E{:.6f}\n".format(
+                    self.current_x, self.current_y, self.current_z, extrusion_amount))
+
 
     def write_layer(self, layer):
         self.current_layer_number += 1
@@ -146,14 +190,14 @@ class GCodeWriter:
         # Set the fan speed based on the layer number
         if self.current_layer_number == 1:
             self.file.write("M107 ; Turn fan off for first layer\n")
-        elif self.current_layer_number == 2:
-            self.file.write("M106 S80\n")
-        elif self.current_layer_number == 3:
-            self.file.write("M106 S160\n")
-        elif self.current_layer_number == 4:
-            self.file.write("M106 S230\n")
-        else:
-            self.file.write("M106 S255\n")
+        # elif self.current_layer_number == 2:
+        #     self.file.write("M106 S80\n")
+        # elif self.current_layer_number == 3:
+        #     self.file.write("M106 S160\n")
+        # elif self.current_layer_number == 4:
+        #     self.file.write("M106 S230\n")
+        # else:
+        #     self.file.write("M106 S255\n")
 
         # Set feedrate settings based on the layer number
         if self.current_layer_number == 1:
@@ -174,14 +218,42 @@ class GCodeWriter:
         if self.use_retraction:
             self.write_un_retraction()
 
-        for lower, higher, is_extrusion, polyline in layer.get_paths():
+        def distance_to_next_travel(segments, paths):
+            total_length = 0
+            for segment in segments:
+                total_length += math.sqrt((segment.target().x() - segment.source().x()) ** 2 + (
+                        segment.target().y() - segment.source().y()) ** 2)
+
+            for lower, higher, is_extrusion, polyline in paths:
+                if not is_extrusion:
+                    return total_length
+                for segment in polyline.segments():
+                    total_length += math.sqrt((segment.target().x() - segment.source().x()) ** 2 + (
+                            segment.target().y() - segment.source().y()) ** 2)
+            return total_length
+
+        range_index = 0
+        paths = layer.get_paths()
+        for lower, higher, is_extrusion, polyline in paths:
+            segments = polyline.segments()
+            index = 0
             for segment in polyline.segments():
                 if is_extrusion:
                     if self.do_mixing_ratios_diff((lower, higher)):
                         self.write_mixing_ratios((lower, higher))
-                    self.write_extrusion_line(segment)
+                        if self.toolchange_inserted:
+                            # Add a travel back to the segment
+                            new_travel = pv.Segment2(pv.Point2(self.current_x, self.current_y), segment.source())
+                            self.write_travel(new_travel)
+                            self.write_big_un_retraction()
+                            self.toolchange_inserted = False
+
+                    distance = distance_to_next_travel(segments[index:], paths[range_index+1:])
+                    self.write_extrusion_line(segment, distance)
                 else:
                     self.write_travel(segment)
+                index += 1
+            range_index += 1
 
     def write_comment(self, comment):
         self.file.write(";{}\n".format(comment))
@@ -197,6 +269,11 @@ class GCodeWriter:
         self.current_higher = new_range[1]
 
         if self.mode == "mixture":
+            def mixture_flow_rate_compensation(e0_pct, lower, upper):
+                # Create a linear flow rate modifier based on the mixture ratio. When e0_pct is 0, the flow rate is lower.
+                # When e0_pct is 1, the flow rate is upper.
+                return (e0_pct * (upper - lower) + lower) * 100.0
+
             self.write_comment("Starting material mixture range: {:.4f} to {:.4f}".format(self.current_lower, self.current_higher))
             middle_point = (self.current_lower + self.current_higher) / 2.0
             # Write the gcode for a mixing ratio change using the M163 command for extruder 0 and 1
@@ -209,8 +286,8 @@ class GCodeWriter:
             middle_point = (self.current_lower + self.current_higher) / 2.0
 
             if self.settings["gradient_settings"]["material"] == "PLA":
-                # Convert mixture to temperature using a linear mapping (190 to 220 degrees)
-                middle_point_temperature = 190 + middle_point * 60
+                # Convert mixture to temperature using a linear mapping (205 to 240 degrees)
+                middle_point_temperature = 210 + middle_point * 20
                 # Compute new flow rate modifier based on the temperature (and therefore the foaming expansion)
                 flow_rate = ((0.000008354790481 * (middle_point_temperature ** 3)) - (0.005370745309190 * (middle_point_temperature ** 2)) + (1.133743061069320 * middle_point_temperature) - 77.813511184263700) * 100.0
             elif self.settings["gradient_settings"]["material"] == "TPU":
@@ -224,21 +301,29 @@ class GCodeWriter:
             self.write_comment("Starting temperature of {:.4f} as midpoint for range: {:.4f} to {:.4f}".format(
                 middle_point_temperature, self.current_lower, self.current_higher))
 
-            self.write_big_retraction()
+            dock_extruder = self.settings["printer_settings"]["dock_extruder"]
+            if dock_extruder:
+                self.write_big_retraction()
 
-            self.file.write("G1 F21000\t ; Setting travel speed\n")
-            self.current_feedrate = 21000
+                self.file.write("G1 F21000\t ; Setting travel speed\n")
+                self.current_feedrate = 21000
 
-            # Park the tool so that the nozzle is sealed
-            self.file.write("P0 S1 L2 D0\t; Park the tool\n")
+                # Move to back left corner
+                self.file.write("G1 X0 Y{:.4f} Z{:.4f} F21000\t; Move to back left corner\n".format(self.volume_max[1],self.current_z))
 
-            # Write the gcode for a temperature change using the M104 command and wait
-            self.file.write("M109 T0 R{:.4f}\t; Set new temp and wait\n".format(middle_point_temperature))
+                # Park the tool so that the nozzle is sealed
+                self.file.write("P0 S1 L2 D0\t; Park the tool\n")
+
+                # Write the gcode for a temperature change using the M104 command and wait
+                self.file.write("M109 T0 R{:.4f}\t; Set new temp and wait\n".format(middle_point_temperature))
+
+                # Pick the tool back up
+                self.file.write("T0 S1 L0 D0\t; Pick the tool back up and resume\n")
+                self.file.write("G1 X0 Y{:.4f} Z{:.4f} F21000\t; Move to back left corner\n".format(self.volume_max[1], self.current_z))
+                self.toolchange_inserted = True
+            else:
+                # Write the gcode for a temperature change using the M104 command and DO NOT wait
+                self.file.write("M104 T0 S{:.4f}\t; Set new temp and DO NOT wait\n".format(middle_point_temperature))
 
             # Write the gcode for a flow rate change using the M221 command
             self.file.write("M221 T0 S{:.4f}\t; Set flow rate to compensate for expansion\n".format(flow_rate))
-
-            # Pick the tool back up
-            self.file.write("T0 S1 L0 D0\t; Pick the tool back up and resume\n")
-
-            self.write_big_un_retraction()

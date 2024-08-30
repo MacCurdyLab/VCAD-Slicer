@@ -9,7 +9,7 @@ plugin_path = os.path.join(os.path.dirname(__file__), "plugins")
 os.environ["QT_PLUGIN_PATH"] = plugin_path
 
 # Paths
-settings_path = "settings/mizar_complex_vase.json"
+settings_path = "demos/vase_tall/vase_tall_temp_12_region.json"
 
 # Load json into dictionary
 with open(settings_path, 'r') as file:

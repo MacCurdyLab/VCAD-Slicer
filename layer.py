@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 from libvcad import pyvcad as pv
 import infill
 import visualization as vis
@@ -307,9 +308,10 @@ class Layer:
             if needs_reversal:
                 nearest_path[3].reverse()
 
-            # Add travel segment
-            travel = pv.Polyline2([current_end, nearest_path[3].points()[0]])
-            self.connected_paths.append((0, 0, False, travel))  # False indicates that this is a travel move
+            # Add travel segment if the min distance is non-zero
+            if min_distance > 0.05:
+                travel = pv.Polyline2([current_end, nearest_path[3].points()[0]])
+                self.connected_paths.append((0, 0, False, travel))  # False indicates that this is a travel move
             self.connected_paths.append(nearest_path)
             available_paths.remove(nearest_path)
             current_path = nearest_path

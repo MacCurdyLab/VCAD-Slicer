@@ -18,6 +18,7 @@
     },
     "filament_diameter": 1.75,
     "nozzle_diameter": 3,
+    "coasting_distance": 0.0,
     "speeds": {
       "travel": 24000,
       "first_layer_extrusion": 1200,
