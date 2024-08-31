@@ -25,6 +25,7 @@ class GCodeWriter:
         self.un_retraction_length = settings["printer_settings"]["retraction"]["un_retract_length"]
         self.un_retraction_speed = settings["printer_settings"]["retraction"]["un_retract_speed"]
         self.coasting_distance = settings["printer_settings"]["coasting_distance"]
+        self.lookahead_distance = settings["printer_settings"]["lookahead_distance"]
 
         self.layer_height = settings["slicer_settings"]["layer_height"]
         self.flow_rate = settings["material_settings"]["flow_rate"] / 100.0
@@ -32,6 +33,10 @@ class GCodeWriter:
         self.idle_temperature = settings["material_settings"]["idle_temperature"]
         self.bed_temperature = self.settings["material_settings"]["bed_temperature"]
         self.mode = settings["gradient_settings"]["mode"]
+
+        self.distance_to_next_mixture = -1
+        self.next_lower = 0
+        self.next_higher = 0
 
         self.current_x = 0
         self.current_y = 0
@@ -141,12 +146,12 @@ class GCodeWriter:
         #     self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f} E{:.6f}\n".format(
         #         self.current_x, self.current_y, self.current_z, extrusion_amount))
 
-        if distance_to_next_travel < self.coasting_distance:
+        if self.coasting_distance > 0 and distance_to_next_travel < self.coasting_distance:
             extrusion_amount = 0
         else:
             extrusion_amount = self.calculate_extrusion_amount(segment)
 
-        if distance_to_next_travel == current_segment_length:
+        if self.coasting_distance > 0 and distance_to_next_travel == current_segment_length:
             # Split the segment into two parts
             ratio = (current_segment_length - self.coasting_distance) / current_segment_length
             mid_x = segment.source().x() + ratio * (segment.target().x() - segment.source().x())
@@ -177,6 +182,30 @@ class GCodeWriter:
                 self.file.write("G1 X{:.4f} Y{:.4f} Z{:.4f} E{:.6f}\n".format(
                     self.current_x, self.current_y, self.current_z, extrusion_amount))
 
+    def compute_distance_to_next_mixture(self, segments, paths):
+        if self.distance_to_next_mixture == -1: # Must compute a new
+            total_length = sum(math.sqrt((segment.target().x() - segment.source().x()) ** 2 +
+                                         (segment.target().y() - segment.source().y()) ** 2)
+                               for segment in segments)
+
+            for lower, higher, is_extrusion, polyline in paths:
+                if is_extrusion:
+                    if lower != self.current_lower:  # This is a new mixture
+                        self.distance_to_next_mixture = total_length
+                        self.next_lower = lower
+                        self.next_higher = higher
+                        return total_length, lower, higher
+                    total_length += sum(math.sqrt((segment.target().x() - segment.source().x()) ** 2 +
+                                                  (segment.target().y() - segment.source().y()) ** 2)
+                                        for segment in polyline.segments())
+            self.distance_to_next_mixture = total_length
+            return total_length, self.next_lower, self.next_higher
+        else: # Return the previously computed distance minus this segment's length
+            this_segment_length = math.sqrt((segments[0].target().x() - segments[0].source().x()) ** 2 +
+                                            (segments[0].target().y() - segments[0].source().y()) ** 2)
+            new_distance = self.distance_to_next_mixture - this_segment_length
+            self.distance_to_next_mixture = new_distance
+            return new_distance, self.next_lower, self.next_higher
 
     def write_layer(self, layer):
         self.current_layer_number += 1
@@ -239,16 +268,24 @@ class GCodeWriter:
             index = 0
             for segment in polyline.segments():
                 if is_extrusion:
-                    if self.do_mixing_ratios_diff((lower, higher)):
-                        self.write_mixing_ratios((lower, higher))
-                        if self.toolchange_inserted:
-                            # Add a travel back to the segment
-                            new_travel = pv.Segment2(pv.Point2(self.current_x, self.current_y), segment.source())
-                            self.write_travel(new_travel)
-                            self.write_big_un_retraction()
-                            self.toolchange_inserted = False
+                    mixture_distance, new_lower, new_higher = self.compute_distance_to_next_mixture(segments[index:], paths[range_index+1:])
+                    if (self.lookahead_distance > 0 and
+                         mixture_distance < self.lookahead_distance):
+                        self.write_mixing_ratios((new_lower, new_higher))
+                    elif self.do_mixing_ratios_diff((lower, higher)):
+                            self.write_mixing_ratios((lower, higher))
 
-                    distance = distance_to_next_travel(segments[index:], paths[range_index+1:])
+                    if self.toolchange_inserted:
+                        # Add a travel back to the segment
+                        new_travel = pv.Segment2(pv.Point2(self.current_x, self.current_y), segment.source())
+                        self.write_travel(new_travel)
+                        self.write_big_un_retraction()
+                        self.toolchange_inserted = False
+
+                    if self.coasting_distance > 0:
+                        distance = distance_to_next_travel(segments[index:], paths[range_index+1:])
+                    else:
+                        distance = 0
                     self.write_extrusion_line(segment, distance)
                 else:
                     self.write_travel(segment)
@@ -267,6 +304,7 @@ class GCodeWriter:
         assert new_range[0] != 0.0 or new_range[1] != 1.0
         self.current_lower = new_range[0]
         self.current_higher = new_range[1]
+        self.distance_to_next_mixture = -1
 
         if self.mode == "mixture":
             def mixture_flow_rate_compensation(e0_pct, lower, upper):

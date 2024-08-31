@@ -1,6 +1,7 @@
 import json
 import time
 import slicer
+import outline_slicer
 import demo_objects as do
 import gcode_writer as gw
 
@@ -9,7 +10,7 @@ plugin_path = os.path.join(os.path.dirname(__file__), "plugins")
 os.environ["QT_PLUGIN_PATH"] = plugin_path
 
 # Paths
-settings_path = "demos/vase_tall/vase_tall_temp_12_region.json"
+settings_path = "settings/offset_demo.json"
 
 # Load json into dictionary
 with open(settings_path, 'r') as file:
@@ -56,7 +57,10 @@ ranges = generate_linear_ranges(num_regions, 0.0, 1.0)
 start = time.time()
 
 # Perform slice
-slicer = slicer.Slicer(root, meta.min, meta.max, meta.voxel_size, settings)
+# slicer = slicer.Slicer(root, meta.min, meta.max, meta.voxel_size, settings)
+# slicer.slice(ranges=ranges)
+
+slicer = outline_slicer.OutlineSlicer(root, meta.min, meta.max, meta.voxel_size, settings)
 slicer.slice(ranges=ranges)
 
 # Optional: visualize the paths
