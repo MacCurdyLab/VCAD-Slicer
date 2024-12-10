@@ -46,6 +46,7 @@ class GCodeWriter:
         self.current_layer_number = 0
         self.current_feedrate = self.desired_extrusion_feedrate
         self.toolchange_inserted = False
+        self.already_inserted_mixture_change = False
 
     def write_header(self, pmin, pmax):
         file_path = self.start_script
@@ -198,8 +199,10 @@ class GCodeWriter:
                     total_length += sum(math.sqrt((segment.target().x() - segment.source().x()) ** 2 +
                                                   (segment.target().y() - segment.source().y()) ** 2)
                                         for segment in polyline.segments())
+            # If we have not returned yet, there are no more mixtures
             self.distance_to_next_mixture = total_length
-            return total_length, self.next_lower, self.next_higher
+            return total_length, self.current_lower, self.current_higher
+
         else: # Return the previously computed distance minus this segment's length
             this_segment_length = math.sqrt((segments[0].target().x() - segments[0].source().x()) ** 2 +
                                             (segments[0].target().y() - segments[0].source().y()) ** 2)
@@ -207,9 +210,13 @@ class GCodeWriter:
             self.distance_to_next_mixture = new_distance
             return new_distance, self.next_lower, self.next_higher
 
-    def write_layer(self, layer):
+    def write_layer(self, layer, future_layers):
         self.current_layer_number += 1
         self.current_z = layer.get_z_height()
+
+        future_layer_paths = []
+        for future_layer in future_layers:
+            future_layer_paths.extend(future_layer.get_paths())
 
         # Write the z change
         self.write_comment("|===== Layer {} =====|".format(self.current_layer_number))
@@ -261,6 +268,7 @@ class GCodeWriter:
                             segment.target().y() - segment.source().y()) ** 2)
             return total_length
 
+        added_first_mixture = False
         range_index = 0
         paths = layer.get_paths()
         for lower, higher, is_extrusion, polyline in paths:
@@ -268,11 +276,29 @@ class GCodeWriter:
             index = 0
             for segment in polyline.segments():
                 if is_extrusion:
-                    mixture_distance, new_lower, new_higher = self.compute_distance_to_next_mixture(segments[index:], paths[range_index+1:])
+                    # All future paths include this layer and all paths from future layers
+                    all_future_paths = paths[range_index+1:]
+                    all_future_paths.extend(future_layer_paths)
+
+                    if self.current_layer_number == 1 and not added_first_mixture:
+                        self.write_mixing_ratios((lower, higher))
+                        added_first_mixture = True
+
+                    if self.distance_to_next_mixture <= 0:
+                        self.distance_to_next_mixture = -1
+                        self.already_inserted_mixture_change = False
+
+                    mixture_distance, new_lower, new_higher = self.compute_distance_to_next_mixture(segments[index:],
+                                                                                   all_future_paths)
+
+
                     if (self.lookahead_distance > 0 and
-                         mixture_distance < self.lookahead_distance):
+                         mixture_distance < self.lookahead_distance and
+                         self.already_inserted_mixture_change == False):
                         self.write_mixing_ratios((new_lower, new_higher))
-                    elif self.do_mixing_ratios_diff((lower, higher)):
+                        self.already_inserted_mixture_change = True
+                    elif (self.lookahead_distance <= 0 and
+                         self.do_mixing_ratios_diff((lower, higher))):
                             self.write_mixing_ratios((lower, higher))
 
                     if self.toolchange_inserted:
@@ -304,7 +330,6 @@ class GCodeWriter:
         assert new_range[0] != 0.0 or new_range[1] != 1.0
         self.current_lower = new_range[0]
         self.current_higher = new_range[1]
-        self.distance_to_next_mixture = -1
 
         if self.mode == "mixture":
             def mixture_flow_rate_compensation(e0_pct, lower, upper):
@@ -314,6 +339,13 @@ class GCodeWriter:
 
             self.write_comment("Starting material mixture range: {:.4f} to {:.4f}".format(self.current_lower, self.current_higher))
             middle_point = (self.current_lower + self.current_higher) / 2.0
+
+            if self.settings["gradient_settings"]["use_max_extents"]:
+                if middle_point < 0.5:
+                    middle_point = 0.0
+                else:
+                    middle_point = 1.0
+
             # Write the gcode for a mixing ratio change using the M163 command for extruder 0 and 1
             self.file.write("M163 S0 P{:.4f}\n".format(middle_point))
             self.file.write("M163 S1 P{:.4f}\n".format(1.0 - middle_point))
@@ -322,6 +354,11 @@ class GCodeWriter:
             self.file.write("M164 S0\n")
         elif self.mode == "temperature":
             middle_point = (self.current_lower + self.current_higher) / 2.0
+            if self.settings["gradient_settings"]["use_max_extents"]:
+                if middle_point < 0.5:
+                    middle_point = 0.0
+                else:
+                    middle_point = 1.0
 
             if self.settings["gradient_settings"]["material"] == "PLA":
                 # Convert mixture to temperature using a linear mapping (205 to 240 degrees)

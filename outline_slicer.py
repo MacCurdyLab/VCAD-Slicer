@@ -44,7 +44,7 @@ class OutlineSlicer:
 
             if len(geometry_outlines) > 0:
                 print("\t-> Generating paths for layer {} at z = {}".format(layer_num, z))
-                new_layer = outline_layer.OutlineLayer(geometry_outlines, z, bead_width, layer_num)
+                new_layer = outline_layer.OutlineLayer(geometry_outlines, z, bead_width, layer_num, self.settings["slicer_settings"]["fill_with_infill"])
                 self.layers.append(new_layer)
                 layer_num += 1
             else:
@@ -91,10 +91,11 @@ class OutlineSlicer:
         print("5. Writing GCode")
         pmin, pmax = self.get_bounds()
         gcode_writer.write_header(pmin, pmax)
-        i = 1
+        i = 0
         for l in self.layers:
-            print("\t-> Writing layer {}".format(i))
-            l.write_layer(gcode_writer)
+            future_layers = self.layers[i+1:]
+            print("\t-> Writing layer {}".format(i+1))
+            l.write_layer(gcode_writer, future_layers)
             i += 1
         gcode_writer.write_footer()
 

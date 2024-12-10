@@ -1,7 +1,7 @@
 {
   "object_settings": {
-    "name": "vase_slice_mixing_8_region_0_overlap",
-    "vcad_script_path": "demos/vase_slice/vase_slice.vcad",
+    "name": "5_dogbones_0.10_overlap_3_regions",
+    "vcad_script_path": "demos/dogbone/5_dogbones.vcad",
     "vcad_config_path": "vcad_configs/testing.json",
     "translation": [0.0, -20.0]
   },
@@ -18,8 +18,9 @@
     },
     "filament_diameter": 1.75,
     "nozzle_diameter": 0.4,
-    "coasting_distance": 0.5,
-    "lookahead_distance": 0,
+    "coasting_distance": 0.0,
+    "lookahead_distance": 960,
+    "dock_extruder": false,
     "speeds": {
       "travel": 24000,
       "first_layer_extrusion": 1200,
@@ -38,21 +39,22 @@
   },
   "slicer_settings": {
     "layer_height": 0.2,
-    "num_walls": 3,
-    "infill_density": 95,
+    "num_walls": 100,
+    "infill_density": 100,
+    "fill_with_infill": true,
     "visualize_paths": false
   },
   "gradient_settings": {
     "mode": "mixture",
     "material": "PLA",
-    "interlink": false,
-    "overlap_amount": 0.0125,
-    "num_regions": 8
+    "interlink": true,
+    "overlap_amount": 0.1,
+    "num_regions": 3
   },
   "purge_tower_settings": {
-    "min": [10, 200],
+    "min": [45, 200],
     "max": [250.0, 2500.0],
-    "size": [25.0, 30.0],
-    "spacing": [3, 3]
+    "size": [50.0, 50.0],
+    "spacing": [6, 6]
   }
 }

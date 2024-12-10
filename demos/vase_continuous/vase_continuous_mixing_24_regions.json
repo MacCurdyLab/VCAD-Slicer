@@ -1,7 +1,7 @@
 {
   "object_settings": {
-    "name": "vase_slice_mixing_8_region_0_overlap",
-    "vcad_script_path": "demos/vase_slice/vase_slice.vcad",
+    "name": "vase_continuous_mixing_24_regions",
+    "vcad_script_path": "demos/vase_continuous/vase_slice.vcad",
     "vcad_config_path": "vcad_configs/testing.json",
     "translation": [0.0, -20.0]
   },
@@ -18,8 +18,9 @@
     },
     "filament_diameter": 1.75,
     "nozzle_diameter": 0.4,
-    "coasting_distance": 0.5,
-    "lookahead_distance": 0,
+    "coasting_distance": 0.0,
+    "lookahead_distance": 960,
+    "dock_extruder": false,
     "speeds": {
       "travel": 24000,
       "first_layer_extrusion": 1200,
@@ -39,7 +40,8 @@
   "slicer_settings": {
     "layer_height": 0.2,
     "num_walls": 3,
-    "infill_density": 95,
+    "infill_density": 100,
+    "fill_with_infill": true,
     "visualize_paths": false
   },
   "gradient_settings": {
@@ -47,7 +49,7 @@
     "material": "PLA",
     "interlink": false,
     "overlap_amount": 0.0125,
-    "num_regions": 8
+    "num_regions": 24
   },
   "purge_tower_settings": {
     "min": [10, 200],

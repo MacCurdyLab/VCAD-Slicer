@@ -17,8 +17,10 @@
       "max": [255.0, 255.0, 260.0]
     },
     "filament_diameter": 1.75,
-    "nozzle_diameter": 0.46,
+    "nozzle_diameter": 0.4,
     "coasting_distance": 0.0,
+    "lookahead_distance": 0,
+    "dock_extruder": false,
     "speeds": {
       "travel": 24000,
       "first_layer_extrusion": 1200,
@@ -39,14 +41,15 @@
     "layer_height": 0.2,
     "num_walls": 30,
     "infill_density": 100,
-    "visualize_paths": true
+    "visualize_paths": true,
+    "fill_with_infill": false
   },
   "gradient_settings": {
     "mode": "mixture",
     "material": "PLA",
     "interlink": false,
     "overlap_amount": 0.05,
-    "num_regions": 4
+    "num_regions": 8
   },
   "purge_tower_settings": {
     "min": [108.5, 133],

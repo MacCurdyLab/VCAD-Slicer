@@ -7,7 +7,7 @@ def parse_from_file(file_path, config_path):
         # Parse the vcad script
         try:
             [meta, root] = pv.parse_vcad_text(vcad_script, config_path)
-            root.prepare(pv.Vec3(1,1,1))
+            root.prepare(meta.voxel_size, 5,5)
             return meta, root
         except Exception as e:
             print("Error parsing vcad script: ", e)
@@ -43,7 +43,7 @@ def linear_gradient_bar_with_big_hole():
     fg = pv.FGrade(["(x/16)+0.5"], [1], True)
     fg.set_child(diff)
     root = fg
-    root.prepare()
+    root.prepare(pv.Vec3(1,1,1))
 
     return meta, root
 

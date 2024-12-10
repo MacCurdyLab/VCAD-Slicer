@@ -1,25 +1,26 @@
 {
   "object_settings": {
-    "name": "vase_slice_mixing_8_region_0_overlap",
-    "vcad_script_path": "demos/vase_slice/vase_slice.vcad",
+    "name": "mit_ll_second",
+    "vcad_script_path": "demos/mit_ll/second.vcad",
     "vcad_config_path": "vcad_configs/testing.json",
-    "translation": [0.0, -20.0]
+    "translation": [0.0, 0.0]
   },
   "material_settings": {
-    "extruder_temperature": 205,
+    "extruder_temperature": 190,
     "idle_temperature": 70,
     "bed_temperature": 60,
-    "flow_rate": 90
+    "flow_rate": 120
   },
   "printer_settings": {
     "dimensions": {
       "min": [0.0, 0.0, 0.0],
-      "max": [255.0, 255.0, 260.0]
+      "max": [360.0, 360.0, 360.0]
     },
     "filament_diameter": 1.75,
     "nozzle_diameter": 0.4,
-    "coasting_distance": 0.5,
+    "coasting_distance": 0.0,
     "lookahead_distance": 0,
+    "dock_extruder": false,
     "speeds": {
       "travel": 24000,
       "first_layer_extrusion": 1200,
@@ -28,31 +29,32 @@
     "retraction": {
       "use": true,
       "required_distance": 1.5,
-      "length": 6.0,
+      "length": 0.8,
       "speed": 2100,
-      "un_retract_length": 6.0,
-      "un_retract_speed": 1800
+      "un_retract_length": 0.8,
+      "un_retract_speed": 1500
     },
-    "start_code_path": "gcode_scripts/start_mizar.gcode",
-    "end_code_path": "gcode_scripts/end_mizar.gcode"
+    "start_code_path": "gcode_scripts/start_xl.gcode",
+    "end_code_path": "gcode_scripts/end_xl.gcode"
   },
   "slicer_settings": {
     "layer_height": 0.2,
     "num_walls": 3,
-    "infill_density": 95,
+    "infill_density": 100,
+    "fill_with_infill": false,
     "visualize_paths": false
   },
   "gradient_settings": {
-    "mode": "mixture",
+    "mode": "temperature",
     "material": "PLA",
     "interlink": false,
-    "overlap_amount": 0.0125,
+    "overlap_amount": 0.25,
     "num_regions": 8
   },
   "purge_tower_settings": {
-    "min": [10, 200],
-    "max": [250.0, 2500.0],
-    "size": [25.0, 30.0],
+    "min": [120, 255],
+    "max": [300.0, 320.0],
+    "size": [30.0, 30.0],
     "spacing": [3, 3]
   }
 }

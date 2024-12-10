@@ -20,6 +20,7 @@
     "nozzle_diameter": 0.4,
     "coasting_distance": 0.5,
     "dock_extruder": true,
+    "lookahead_distance": 0,
     "speeds": {
       "travel": 24000,
       "first_layer_extrusion": 1200,
@@ -50,7 +51,7 @@
     "num_regions": 4
   },
   "purge_tower_settings": {
-    "min": [120, 255],
+    "min": [80, 255],
     "max": [300.0, 320.0],
     "size": [30.0, 30.0],
     "spacing": [3, 3]

@@ -1,6 +1,6 @@
 {
   "object_settings": {
-    "name": "vase_slice_mixing_8_region_0_overlap",
+    "name": "vase_slice_mixing_12_region_0_overlap",
     "vcad_script_path": "demos/vase_slice/vase_slice.vcad",
     "vcad_config_path": "vcad_configs/testing.json",
     "translation": [0.0, -20.0]
@@ -46,8 +46,8 @@
     "mode": "mixture",
     "material": "PLA",
     "interlink": false,
-    "overlap_amount": 0.0125,
-    "num_regions": 8
+    "overlap_amount": 0.0,
+    "num_regions": 12
   },
   "purge_tower_settings": {
     "min": [10, 200],

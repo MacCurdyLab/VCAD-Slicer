@@ -10,7 +10,7 @@ plugin_path = os.path.join(os.path.dirname(__file__), "plugins")
 os.environ["QT_PLUGIN_PATH"] = plugin_path
 
 # Paths
-settings_path = "settings/offset_demo.json"
+settings_path = "demos/vase_continuous/vase_continuous_tputemp_48_regions.json"
 
 # Load json into dictionary
 with open(settings_path, 'r') as file:
@@ -52,6 +52,11 @@ print("\nSlicing...")
 # Make gradient ranges
 num_regions = settings["gradient_settings"]["num_regions"]
 ranges = generate_linear_ranges(num_regions, 0.0, 1.0)
+
+# Print ranges
+print("Gradient ranges: ")
+for r in ranges:
+    print("\t{}".format(r))
 
 # Start timer for slicing
 start = time.time()

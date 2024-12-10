@@ -1,7 +1,7 @@
 {
   "object_settings": {
-    "name": "vase_tall_temp_12_region",
-    "vcad_script_path": "demos/vase_tall/vase_tall.vcad",
+    "name": "lookahead_calibration_foaming_pla",
+    "vcad_script_path": "demos/lookahead_calibration/lookahead_calibration.vcad",
     "vcad_config_path": "vcad_configs/testing.json",
     "translation": [0.0, 0.0]
   },
@@ -9,7 +9,7 @@
     "extruder_temperature": 190,
     "idle_temperature": 70,
     "bed_temperature": 60,
-    "flow_rate": 105
+    "flow_rate": 120
   },
   "printer_settings": {
     "dimensions": {
@@ -18,20 +18,20 @@
     },
     "filament_diameter": 1.75,
     "nozzle_diameter": 0.4,
-    "coasting_distance": 1.0,
+    "coasting_distance": 0.0,
     "dock_extruder": false,
     "lookahead_distance": 0,
     "speeds": {
-      "travel": 34000,
+      "travel": 24000,
       "first_layer_extrusion": 1200,
-      "other_layer_extrusion": 2400
+      "other_layer_extrusion": 1200
     },
     "retraction": {
       "use": true,
       "required_distance": 1.5,
       "length": 0.8,
       "speed": 2100,
-      "un_retract_length": 0.7,
+      "un_retract_length": 0.8,
       "un_retract_speed": 1500
     },
     "start_code_path": "gcode_scripts/start_xl.gcode",
@@ -39,21 +39,22 @@
   },
   "slicer_settings": {
     "layer_height": 0.2,
-    "num_walls": 4,
-    "infill_density": 0,
+    "num_walls": 0,
+    "infill_density": 100,
     "visualize_paths": false
   },
   "gradient_settings": {
     "mode": "temperature",
     "material": "PLA",
+    "use_max_extents": true,
     "interlink": false,
     "overlap_amount": 0.25,
-    "num_regions": 12
+    "num_regions": 2
   },
   "purge_tower_settings": {
-    "min": [120, 255],
+    "min": [80, 255],
     "max": [300.0, 320.0],
-    "size": [12.0, 12.0],
+    "size": [0.0, 0.0],
     "spacing": [3, 3]
   }
 }

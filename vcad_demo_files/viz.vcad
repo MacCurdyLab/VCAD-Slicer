@@ -1,6 +1,7 @@
-root((-24, -4, -0.5), (24, 4, 0.5), (0.5, 0.5, 0.5))
+root((-24, -4, -0.5), (24, 4, 0.5), (0.25, 0.25, 0.25))
 {
 	fgrade(["x/46+0.5","-x/46+0.5"],["red", "green"],"prob"){
+	//fgrade(["1/(1+exp(-x/4))","-1/(1+exp(-x/4))+1.0"],["red", "green"],"prob"){
 		mesh("data/3d_models/dogbone_large.stl", "green");
 	}
 }

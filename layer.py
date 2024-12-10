@@ -20,7 +20,7 @@ class Layer:
 
         self.connected_paths = []
 
-        self.purge_tower_walls = 56
+        self.purge_tower_walls = 100
         self.purge_tower_centers = purge_tower_centers
         self.purge_tower_x_size = purge_tower_x_size
         self.purge_tower_y_size = purge_tower_y_size
@@ -35,8 +35,8 @@ class Layer:
     def get_paths(self):
         return self.connected_paths
 
-    def write_layer(self, gcode_writer):
-        gcode_writer.write_layer(self)
+    def write_layer(self, gcode_writer, future_layers):
+        gcode_writer.write_layer(self, future_layers)
 
     def generate_walls(self, number):
 
@@ -63,6 +63,10 @@ class Layer:
         self.infill = infill.generate_rectilinear_infill(infill_outline, infill_spacing)
 
     def generate_purge_tower(self, start_pt, desired_range):
+        # If the purge tower size is zero, skip this step
+        if self.purge_tower_x_size == 0 or self.purge_tower_y_size == 0:
+            return
+
         # Get the center of the purge tower for this range
         center = None
         for lower, higher, c in self.purge_tower_centers:
@@ -273,6 +277,9 @@ class Layer:
         if len(available_paths) == 0:
             return
 
+        if self.layer_num % 2 == 0:
+            available_paths.reverse()
+
         current_path = available_paths[0]
         available_paths.remove(current_path)
 
@@ -325,7 +332,7 @@ class Layer:
         for lower, higher, walls in self.ranged_walls:
             ranges.append((lower, higher))
 
-        previous_end = pv.Point2(-8, 10)  # Start at the origin
+        previous_end = pv.Point2(0,0)  # Start at the origin
         for lower, higher in ranges:
             self.generate_purge_tower(previous_end, (lower, higher))
 

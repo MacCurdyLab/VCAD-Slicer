@@ -5,7 +5,7 @@ import visualization as vis
 
 
 class OutlineLayer:
-    def __init__(self, outline, z_height, bead_width, layer_num):
+    def __init__(self, outline, z_height, bead_width, layer_num, fill_with_infill):
         self.z_height = z_height
         self.bead_width = bead_width
 
@@ -19,7 +19,7 @@ class OutlineLayer:
 
         self.layer_num = layer_num
 
-        self.fill_with_infill = False
+        self.fill_with_infill = fill_with_infill
 
         self.ranged_wall = []
 
@@ -32,8 +32,8 @@ class OutlineLayer:
     def get_paths(self):
         return self.connected_paths
 
-    def write_layer(self, gcode_writer):
-        gcode_writer.write_layer(self)
+    def write_layer(self, gcode_writer, future_layers):
+        gcode_writer.write_layer(self, future_layers)
 
     def generate_walls(self, desired_ranges, slicer, reverse):
         ranges = slicer.slice_material(self.z_height, 1, desired_ranges)
@@ -54,6 +54,11 @@ class OutlineLayer:
                     polyline = polygon.to_polyline()
                     if self.fill_with_infill:
                         paths.append(polyline)
+                        # Also add the holes
+                        for hole in polygon.holes():
+                            hole_polyline = hole.to_polyline()
+                            paths.append(hole_polyline)
+
                         # Offset polygon by half the bead width inwards
                         inset_polygon = polygon.offset(-self.bead_width / 2.0)
                         new_infill =  infill.generate_rectilinear_infill(inset_polygon, self.bead_width)
@@ -72,20 +77,6 @@ class OutlineLayer:
                             else:
                                 break
             self.ranged_walls.append((lower, higher, paths))
-
-        # Convert each wall to a polyline and append to self.ranged_walls
-        # for lower, higher, walls in ranged_walls:
-        #     polylines = []
-        #     for wall in walls:
-        #         polyline = wall.to_polyline()
-        #         polylines.append(polyline)
-        #
-        #         # If the polygon had holes, we need to add them as well
-        #         for hole in wall.holes():
-        #             polyline = hole.to_polyline()
-        #             polylines.append(polyline)
-        #
-        #     self.ranged_walls.append((lower, higher, polylines))
 
     # Static method to compute the distance between two points
     @staticmethod

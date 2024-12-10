@@ -1,0 +1,14 @@
+root((-28, -32, -6), (28, 32, 15), (0.25,0.25,0.25))
+{
+    // Graded
+    fgrade(["((y+2)/44)+0.5","-((y+2)/44)+0.5"],["green", "red"], "prob")
+    {
+        mesh("C:/Users/colso/OneDrive - UCB-O365/MacCurdy Lab/Lab Projects/OpenVCAD/Demos/MIT LL/Second/inside.3mf","green");
+    }
+    
+    // Always green
+    mesh("C:/Users/colso/OneDrive - UCB-O365/MacCurdy Lab/Lab Projects/OpenVCAD/Demos/MIT LL/Second/neck.3mf","green");
+
+    // Always red
+    mesh("C:/Users/colso/OneDrive - UCB-O365/MacCurdy Lab/Lab Projects/OpenVCAD/Demos/MIT LL/Second/outside.3mf","red");
+}

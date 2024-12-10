@@ -131,10 +131,11 @@ class Slicer:
         print("6. Writing GCode")
         pmin, pmax = self.get_bounds()
         gcode_writer.write_header(pmin, pmax)
-        i = 1
+        i = 0
         for l in self.layers:
-            print("\t-> Writing layer {}".format(i))
-            l.write_layer(gcode_writer)
+            future_layers = self.layers[i + 1:]
+            print("\t-> Writing layer {}".format(i+1))
+            l.write_layer(gcode_writer, future_layers)
             i += 1
         gcode_writer.write_footer()
 
