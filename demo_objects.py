@@ -1,14 +1,14 @@
-from libvcad import pyvcad as pv
+import pyvcad as pv
 
-def parse_from_file(file_path, config_path):
+def parse_from_file(voxel_size, file_path, config_path):
     # Load the vcad script text from the file
     with open(file_path, "r") as vcad_file:
         vcad_script = vcad_file.read()
         # Parse the vcad script
         try:
-            [meta, root] = pv.parse_vcad_text(vcad_script, config_path)
-            root.prepare(meta.voxel_size, 5,5)
-            return meta, root
+            root = pv.parse_vcad_text(vcad_script, config_path)
+            root.prepare(voxel_size, 5,5)
+            return root
         except Exception as e:
             print("Error parsing vcad script: ", e)
             return None, None

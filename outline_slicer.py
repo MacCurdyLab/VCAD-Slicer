@@ -1,11 +1,12 @@
-from libvcad import pyvcad as pv
+import pyvcad as pv
+import pyvcad_compilers as pvc
 import outline_layer
 
 
 class OutlineSlicer:
     def __init__(self, root, min, max, voxel_size, settings):
         self.settings = settings
-        self.cross_sectioner = pv.CrossSectionSlicer(root, min, max, voxel_size)
+        self.cross_sectioner = pvc.CrossSectionSlicer(root, min, max, voxel_size)
         self.min = min
         self.max = max
         self.voxel_size = voxel_size
@@ -16,9 +17,31 @@ class OutlineSlicer:
         printer_max = settings["printer_settings"]["dimensions"]["max"]
         self.center_point = ((printer_max[0] - printer_min[0]) / 2, (printer_max[1] - printer_min[1]) / 2)
 
+        if settings["purge_tower_settings"]["use"]:
+            self.use_purge_tower = True
+            self.purge_min = settings["purge_tower_settings"]["min"]
+            self.purge_max = settings["purge_tower_settings"]["max"]
+            self.purge_tower_x_size = settings["purge_tower_settings"]["size"][0]
+            self.purge_tower_y_size = settings["purge_tower_settings"]["size"][1]
+            self.purge_tower_x_spacing = self.purge_tower_x_size + settings["purge_tower_settings"]["spacing"][0]
+            self.purge_tower_y_spacing = self.purge_tower_y_size + settings["purge_tower_settings"]["spacing"][1]
+            self.purge_tower_centers = []
+        else:
+            self.use_purge_tower = False
+            self.purge_min = None
+            self.purge_max = None
+            self.purge_tower_x_size = None
+            self.purge_tower_y_size = None
+            self.purge_tower_x_spacing = None
+            self.purge_tower_y_spacing = None
+            self.purge_tower_centers = None
+
         self.layers = []
 
     def slice(self, ranges):
+        if self.use_purge_tower:
+            print("0. Generating purge tower base locations")
+            self.compute_purge_tower_centers(ranges)
         print("1. Generating outlines")
         self.generate_outlines()
         print("2. Generating paths")
@@ -27,6 +50,28 @@ class OutlineSlicer:
         self.connect_paths()
         print("4.Centering paths on the bed")
         self.center_paths()
+
+    def compute_purge_tower_centers(self, ranges):
+        self.purge_tower_centers = []
+        min_x = self.purge_min[0] - self.center_point[0]
+        min_y = self.purge_min[1] - self.center_point[1]
+        max_x = self.purge_max[0] - self.center_point[0]
+        max_y = self.purge_max[1] - self.center_point[1]
+
+        anchor = pv.Point2(min_x + self.purge_tower_x_spacing / 2, min_y + self.purge_tower_y_spacing / 2)
+        possible_centers = []
+        while anchor.y() < max_y:
+            while anchor.x() < max_x:
+                possible_centers.append(anchor)
+                anchor = pv.Point2(anchor.x() + self.purge_tower_x_spacing, anchor.y())
+            anchor = pv.Point2(min_x + self.purge_tower_x_spacing / 2, anchor.y() + self.purge_tower_y_spacing)
+
+        if len(possible_centers) < len(ranges):
+            raise ValueError(
+                "Not enough possible centers for the number of ranges. Please adjust the purge tower settings")
+
+        for i in range(len(ranges)):
+            self.purge_tower_centers.append((ranges[i][0], ranges[i][1], possible_centers[i]))
 
     def generate_outlines(self):
         layer_height = self.settings["slicer_settings"]["layer_height"]
@@ -44,11 +89,11 @@ class OutlineSlicer:
 
             if len(geometry_outlines) > 0:
                 print("\t-> Generating paths for layer {} at z = {}".format(layer_num, z))
-                new_layer = outline_layer.OutlineLayer(geometry_outlines, z, bead_width, layer_num, self.settings["slicer_settings"]["fill_with_infill"])
+                new_layer = outline_layer.OutlineLayer(geometry_outlines, z, bead_width, layer_num, self.settings["slicer_settings"]["fill_with_infill"],self.purge_tower_centers,self.purge_tower_x_size, self.purge_tower_y_size)
                 self.layers.append(new_layer)
                 layer_num += 1
             else:
-                print("\t-> Skipping layer at z = {}, not geometry found".format(z))
+                print("\t-> Skipping layer at z = {}, no geometry found".format(z))
             z += layer_height
 
     def generate_paths(self ,ranges):
@@ -107,6 +152,6 @@ class OutlineSlicer:
         for l in self.layers:
             l.visualize_ranged_geometry(ranges)
 
-    def visualize_paths(self, printer_bounds=None):
+    def visualize_paths(self, printer_bounds=None, name=None, figsize=(15, 15)):
         for l in self.layers:
-            l.visualize_paths(printer_bounds)
+            l.visualize_paths(printer_bounds, name, figsize)

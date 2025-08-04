@@ -1,5 +1,0 @@
-root((-36, -51, -5), (36, 51, 5), (0.1, 0.1, 0.1))
-{
-    translate(0,25,0){rectprism((70,50,8),"green");}
-    translate(0,-25,0){rectprism((70,50,8),"red");}
-}

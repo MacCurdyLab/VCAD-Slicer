@@ -6,6 +6,10 @@ G1 Z5 F6000                     ; Move bed down
 P0 S1                           ; park tool
 
 M104 T0 S0                      ; turn off extruder heaters
+M104 T1 S0                      ; turn off extruder heaters
+M104 T2 S0                      ; turn off extruder heaters
+M104 T3 S0                      ; turn off extruder heaters
+M104 T4 S0                      ; turn off extruder heaters
 
 M140 S0                         ; turn off heatbed
 M107                            ; turn off fan

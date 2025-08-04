@@ -1,11 +1,12 @@
-from libvcad import pyvcad as pv
+import pyvcad as pv
+import pyvcad_compilers as pvc
 import layer
 
 
 class Slicer:
     def __init__(self, root, min, max, voxel_size, settings):
         self.settings = settings
-        self.cross_sectioner = pv.CrossSectionSlicer(root, min, max, voxel_size)
+        self.cross_sectioner = pvc.CrossSectionSlicer(root, min, max, voxel_size)
         self.min = min
         self.max = max
         self.voxel_size = voxel_size
@@ -85,7 +86,7 @@ class Slicer:
                 self.layers.append(new_layer)
                 layer_num += 1
             else:
-                print("\t-> Skipping layer at z = {}, not geometry found".format(z))
+                print("\t-> Skipping layer at z = {}, no geometry found".format(z))
             z += layer_height
 
     def cut_into_ranges(self, desired_ranges):
@@ -147,6 +148,6 @@ class Slicer:
         for l in self.layers:
             l.visualize_ranged_geometry(ranges)
 
-    def visualize_paths(self, printer_bounds=None):
+    def visualize_paths(self, printer_bounds=None, name=None, figsize=(15, 15)):
         for l in self.layers:
-            l.visualize_paths(printer_bounds)
+            l.visualize_paths(printer_bounds, name, figsize)

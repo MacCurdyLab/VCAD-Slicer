@@ -1,4 +1,4 @@
-from libvcad import pyvcad as pv
+import pyvcad as pv
 
 
 def get_global_bounding_box(outlines):

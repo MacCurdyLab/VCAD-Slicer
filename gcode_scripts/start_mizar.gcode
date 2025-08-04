@@ -1,5 +1,5 @@
 ; Sliced with MACLab Gradient Slicer version 1.0.0 from an OpenVCAD model
-
+M413 S0 ; Turn off power loss recovery
 
 ; Set temperature
 M104 S[extruder_temperature] ; set extruder temp
@@ -32,3 +32,5 @@ G1 X5 Y20 Z0.4 F3000.0        ; Move over to prevent blob squish
 G1 X10 Y10 Z0.2 F600          ; Set feedrate
 
 G92 E0
+
+M204 P500 T500 ; Set print and travel acceleration

@@ -1,5 +1,5 @@
 import math
-from libvcad import pyvcad as pv
+import pyvcad as pv
 
 
 class GCodeWriter:
@@ -26,10 +26,35 @@ class GCodeWriter:
         self.un_retraction_speed = settings["printer_settings"]["retraction"]["un_retract_speed"]
         self.coasting_distance = settings["printer_settings"]["coasting_distance"]
         self.lookahead_distance = settings["printer_settings"]["lookahead_distance"]
+        self.z_lift_height = settings["printer_settings"].get("z_lift_height", 0.0)
 
         self.layer_height = settings["slicer_settings"]["layer_height"]
         self.flow_rate = settings["material_settings"]["flow_rate"] / 100.0
         self.extruder_temperature = self.settings["material_settings"]["extruder_temperature"]
+        if "t0_temperature" in self.settings["material_settings"]:
+            self.t0_temperature = self.settings["material_settings"]["t0_temperature"]
+        else:
+            self.t0_temperature = self.extruder_temperature
+
+        if "t1_temperature" in self.settings["material_settings"]:
+            self.t1_temperature = self.settings["material_settings"]["t1_temperature"]
+        else:
+            self.t1_temperature = self.extruder_temperature
+
+        if "t2_temperature" in self.settings["material_settings"]:
+            self.t2_temperature = self.settings["material_settings"]["t2_temperature"]
+        else:
+            self.t2_temperature = self.extruder_temperature
+
+        if "t3_temperature" in self.settings["material_settings"]:
+            self.t3_temperature = self.settings["material_settings"]["t3_temperature"]
+        else:
+            self.t3_temperature = self.extruder_temperature
+
+        if "t4_temperature" in self.settings["material_settings"]:
+            self.t4_temperature = self.settings["material_settings"]["t4_temperature"]
+        else:
+            self.t4_temperature = self.extruder_temperature
         self.idle_temperature = settings["material_settings"]["idle_temperature"]
         self.bed_temperature = self.settings["material_settings"]["bed_temperature"]
         self.mode = settings["gradient_settings"]["mode"]
@@ -37,6 +62,8 @@ class GCodeWriter:
         self.distance_to_next_mixture = -1
         self.next_lower = 0
         self.next_higher = 0
+
+        self.num_regions = settings["gradient_settings"]["num_regions"]
 
         self.current_x = 0
         self.current_y = 0
@@ -54,6 +81,11 @@ class GCodeWriter:
         replacement_dict = {
             "[bed_temperature]": str(self.bed_temperature),
             "[extruder_temperature]": str(self.extruder_temperature),
+            "[t0_temperature]": str(self.t0_temperature),
+            "[t1_temperature]": str(self.t1_temperature),
+            "[t2_temperature]": str(self.t2_temperature),
+            "[t3_temperature]": str(self.t3_temperature),
+            "[t4_temperature]": str(self.t4_temperature),
             "[travel_speed]": str(self.travel_speed),
             "[idle_temperature]": str(self.idle_temperature),
             "[min_x]": str(pmin[0]),
@@ -88,7 +120,7 @@ class GCodeWriter:
         layer_height = self.layer_height
         filament_diameter = self.filament_diameter
 
-        volume_to_extrude = segment_length * bead_width * layer_height
+        volume_to_extrude = segment_length * bead_width * layer_height # 2
         filament_radius = filament_diameter / 2
         filament_length = volume_to_extrude / (math.pi * filament_radius ** 2)
 
@@ -125,9 +157,24 @@ class GCodeWriter:
         if should_retract:
             self.write_retraction()
 
-        # Write the gcode for a travel move
-        self.file.write("G0 X{:.4f} Y{:.4f} Z{:.4f} F{:.4f}; Travel\n".format(self.current_x, self.current_y, self.current_z, self.travel_speed))
-        self.current_feedrate = self.travel_speed
+        # Only perform Z-lift if height is greater than zero and the travel distance is long enough
+        if self.z_lift_height > 0 and length >= self.retraction_required_distance:
+            # Step 1: Lift the nozzle
+            lifted_z = self.current_z + self.z_lift_height
+            self.file.write("G1 Z{:.4f} F{:.4f}; Z-lift\n".format(lifted_z, self.travel_speed))
+
+            # Step 2: Perform XY travel move with lifted Z
+            self.file.write("G1 X{:.4f} Y{:.4f} F{:.4f}; Travel XY\n".format(
+                self.current_x, self.current_y, self.travel_speed))
+            self.current_feedrate = self.travel_speed
+
+            # Step 3: Lower back to printing height
+            self.file.write("G1 Z{:.4f} F{:.4f}; Z-lower\n".format(self.current_z, self.travel_speed))
+        else:
+            # Just perform XY travel without changing Z
+            self.file.write("G1 X{:.4f} Y{:.4f} F{:.4f}; Travel XY\n".format(
+                self.current_x, self.current_y, self.travel_speed))
+            self.current_feedrate = self.travel_speed
 
         if should_retract:
             self.write_un_retraction()
@@ -226,14 +273,14 @@ class GCodeWriter:
         # Set the fan speed based on the layer number
         if self.current_layer_number == 1:
             self.file.write("M107 ; Turn fan off for first layer\n")
-        # elif self.current_layer_number == 2:
-        #     self.file.write("M106 S80\n")
-        # elif self.current_layer_number == 3:
-        #     self.file.write("M106 S160\n")
-        # elif self.current_layer_number == 4:
-        #     self.file.write("M106 S230\n")
-        # else:
-        #     self.file.write("M106 S255\n")
+        elif self.current_layer_number == 2:
+            self.file.write("M106 S80\n")
+        elif self.current_layer_number == 3:
+            self.file.write("M106 S160\n")
+        elif self.current_layer_number == 4:
+            self.file.write("M106 S230\n")
+        else:
+            self.file.write("M106 S255\n")
 
         # Set feedrate settings based on the layer number
         if self.current_layer_number == 1:
@@ -245,14 +292,14 @@ class GCodeWriter:
         if self.current_layer_number == 1:
             self.file.write("G1 E1.2 F2400\t ;Initial un-retract\n")
 
-        if self.use_retraction:
-            self.write_retraction()
+        # if self.use_retraction:
+        #     self.write_retraction()
 
         # Go to new z height
         self.file.write("G1 Z{:.4f}\n".format(self.current_z))
 
-        if self.use_retraction:
-            self.write_un_retraction()
+        # if self.use_retraction:
+        #     self.write_un_retraction()
 
         def distance_to_next_travel(segments, paths):
             total_length = 0
@@ -276,10 +323,6 @@ class GCodeWriter:
             index = 0
             for segment in polyline.segments():
                 if is_extrusion:
-                    # All future paths include this layer and all paths from future layers
-                    all_future_paths = paths[range_index+1:]
-                    all_future_paths.extend(future_layer_paths)
-
                     if self.current_layer_number == 1 and not added_first_mixture:
                         self.write_mixing_ratios((lower, higher))
                         added_first_mixture = True
@@ -288,15 +331,17 @@ class GCodeWriter:
                         self.distance_to_next_mixture = -1
                         self.already_inserted_mixture_change = False
 
-                    mixture_distance, new_lower, new_higher = self.compute_distance_to_next_mixture(segments[index:],
-                                                                                   all_future_paths)
+                    if (self.lookahead_distance > 0):
+                        # All future paths include this layer and all paths from future layers
+                        all_future_paths = paths[range_index + 1:]
+                        all_future_paths.extend(future_layer_paths)
 
-
-                    if (self.lookahead_distance > 0 and
-                         mixture_distance < self.lookahead_distance and
-                         self.already_inserted_mixture_change == False):
-                        self.write_mixing_ratios((new_lower, new_higher))
-                        self.already_inserted_mixture_change = True
+                        mixture_distance, new_lower, new_higher = self.compute_distance_to_next_mixture(
+                            segments[index:],
+                            all_future_paths)
+                        if mixture_distance < self.lookahead_distance and self.already_inserted_mixture_change == False:
+                            self.write_mixing_ratios((new_lower, new_higher))
+                            self.already_inserted_mixture_change = True
                     elif (self.lookahead_distance <= 0 and
                          self.do_mixing_ratios_diff((lower, higher))):
                             self.write_mixing_ratios((lower, higher))
@@ -402,3 +447,17 @@ class GCodeWriter:
 
             # Write the gcode for a flow rate change using the M221 command
             self.file.write("M221 T0 S{:.4f}\t; Set flow rate to compensate for expansion\n".format(flow_rate))
+        elif self.mode == "switching":
+            # Write the gcode needed to switch the extruder tool
+            if self.num_regions > 5:
+                raise ValueError("Switching mode only supports up to 5 regions. Please use 'mixture' or 'temperature' mode instead.")
+
+            mid_point = (self.current_lower + self.current_higher) / 2.0
+            # Map the mid_point's scale of 0.0 to 1.0 into to the extruder number integer (0 to self.num_regions)
+            extruder_number = int(mid_point * (self.num_regions))
+
+            # Park the current tool so that the nozzle is sealed
+            self.file.write("P0 S1 L2 D0\t; Park the tool\n")
+
+            # Pick the tool back up
+            self.file.write(f"T{extruder_number} S1 L0 D0\t; Pick the new tool\n")

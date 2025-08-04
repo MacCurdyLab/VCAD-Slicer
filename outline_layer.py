@@ -1,11 +1,11 @@
 import matplotlib.pyplot as plt
-from libvcad import pyvcad as pv
+import pyvcad as pv
 import infill
 import visualization as vis
 
 
 class OutlineLayer:
-    def __init__(self, outline, z_height, bead_width, layer_num, fill_with_infill):
+    def __init__(self, outline, z_height, bead_width, layer_num, fill_with_infill, purge_tower_centers = None, purge_tower_x_size = None, purge_tower_y_size = None):
         self.z_height = z_height
         self.bead_width = bead_width
 
@@ -20,6 +20,15 @@ class OutlineLayer:
         self.layer_num = layer_num
 
         self.fill_with_infill = fill_with_infill
+
+        if purge_tower_centers == None:
+            self.use_purge_tower = False
+        else:
+            self.use_purge_tower = True
+            self.purge_tower_walls = 100
+            self.purge_tower_centers = purge_tower_centers
+            self.purge_tower_x_size = purge_tower_x_size
+            self.purge_tower_y_size = purge_tower_y_size
 
         self.ranged_wall = []
 
@@ -36,7 +45,25 @@ class OutlineLayer:
         gcode_writer.write_layer(self, future_layers)
 
     def generate_walls(self, desired_ranges, slicer, reverse):
-        ranges = slicer.slice_material(self.z_height, 1, desired_ranges)
+        # Iterate over the desired ranges switch any value that is zero to -1 and value that is 1 to 2
+        # This is a workaround
+        copied_ranges = desired_ranges.copy()
+        for i in range(len(copied_ranges)):
+            if copied_ranges[i][0] == 0:
+                copied_ranges[i] = (-1, copied_ranges[i][1])
+            if copied_ranges[i][1] == 1:
+                copied_ranges[i] = (copied_ranges[i][0], 2)
+
+        ranges = slicer.slice_material(self.z_height, 1, copied_ranges)
+
+        # Undo the -1 and 2 values on the result ranges
+        for i in range(len(ranges)):
+            lower, higher, polygons = ranges[i]
+            if lower == -1:
+                lower = 0
+            if higher == 2:
+                higher = 1
+            ranges[i] = (lower, higher, polygons)
 
         num_wall_to_try = 100
 
@@ -66,7 +93,12 @@ class OutlineLayer:
                     else:
                         for i in range(num_wall_to_try):
                             offset_poly = polygon.offset(-self.bead_width * i)
-                            if len(offset_poly) > 0:
+                            new_area = 0
+                            for p in offset_poly:
+                                new_area += p.double_area()
+
+                            # If the area is decreasing, and not near zero
+                            if len(offset_poly) > 0 and abs(new_area) > 0.05:
                                 for result in offset_poly:
                                     result_polyline = result.to_polyline()
                                     paths.append(result_polyline)
@@ -77,6 +109,52 @@ class OutlineLayer:
                             else:
                                 break
             self.ranged_walls.append((lower, higher, paths))
+
+    def generate_purge_tower(self, start_pt, desired_range):
+        # If the purge tower size is zero, skip this step
+        if self.purge_tower_x_size == 0 or self.purge_tower_y_size == 0:
+            return
+
+        # Get the center of the purge tower for this range
+        center = None
+        for lower, higher, c in self.purge_tower_centers:
+            if lower == desired_range[0] and higher == desired_range[1]:
+                center = c
+                break
+
+        # Create a box around the center
+        half_size_x = self.purge_tower_x_size / 2.0
+        half_size_y = self.purge_tower_y_size / 2.0
+        box = pv.Polygon2([pv.Point2(center.x() - half_size_x, center.y() - half_size_y),
+                           pv.Point2(center.x() + half_size_x, center.y() - half_size_y),
+                           pv.Point2(center.x() + half_size_x, center.y() + half_size_y),
+                           pv.Point2(center.x() - half_size_x, center.y() + half_size_y),
+                           pv.Point2(center.x() - half_size_x, center.y() - half_size_y)])
+
+        walls = []
+        for i in range(0, self.purge_tower_walls):
+            walls.append(pv.Polygon2.Offset([box], -self.bead_width * i))
+
+        polylines = []
+        for wall in walls:
+            if len(wall) == 0:
+                continue
+
+            polyline = wall[0].to_polyline()
+            # Add travel from the start point to the first point
+            travel = pv.Polyline2([start_pt, polyline.points()[0]])
+            polylines.append((0, 0, False, travel))
+            polylines.append((desired_range[0], desired_range[1], True, polyline))
+            start_pt = polyline.points()[-1]
+
+        # Calculate total length of purge tower extrusion
+        total_length = 0
+        for lower, higher, is_extrusion, polyline in polylines:
+            if is_extrusion:
+                total_length += polyline.length()
+        # print("Purge tower extrusion length: {:.4f}".format(total_length))
+
+        self.connected_paths.extend(polylines)
 
     # Static method to compute the distance between two points
     @staticmethod
@@ -148,6 +226,9 @@ class OutlineLayer:
 
         previous_end = pv.Point2(-8, 10)  # Start at the origin
         for lower, higher in ranges:
+            if self.use_purge_tower:
+                self.generate_purge_tower(previous_end, (lower, higher))
+
             self.connect_paths_in_range(previous_end, (lower, higher))
             if len(self.connected_paths) > 0:
                 previous_end = self.connected_paths[-1][3].points()[-1]
@@ -201,5 +282,5 @@ class OutlineLayer:
                 lines.append((line, (lower + higher) / 2.0))
         vis.plot_labeled_polygons_and_polylines([], lines, figsize=(20, 12))
 
-    def visualize_paths(self, printer_bounds=None):
-        vis.plot_labeled_paths(self.connected_paths, printer_bounds)
+    def visualize_paths(self, printer_bounds=None, name=None, figsize=(15, 15)):
+        vis.plot_labeled_paths(self.connected_paths, printer_bounds, name, figsize)

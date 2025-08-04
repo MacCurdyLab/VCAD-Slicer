@@ -69,7 +69,7 @@ def plot_polygons_and_polylines(polygons, polylines, figsize=(15, 15)):
     plt.show()
 
 
-def plot_labeled_paths(labeled_paths, printer_bounds=None, figsize=(15, 15)):
+def plot_labeled_paths(labeled_paths, printer_bounds=None, name=None, figsize=(15, 15)):
     plot_travels = False
     plt.figure(figsize=figsize)
 
@@ -80,18 +80,27 @@ def plot_labeled_paths(labeled_paths, printer_bounds=None, figsize=(15, 15)):
         if is_extrusion:
             for i in range(len(points) - 1):
                 plt.arrow(points[i][0], points[i][1], points[i + 1][0] - points[i][0], points[i + 1][1] - points[i][1],
-                          head_width=0.0, length_includes_head=True, color=color, linewidth=3.5)
+                          head_width=0.0, length_includes_head=True, color=color, linewidth=6)
         elif plot_travels:
             for i in range(len(points) - 1):
                 plt.plot([points[i][0], points[i + 1][0]], [points[i][1], points[i + 1][1]], color=color,
-                         linestyle='--', linewidth=3.5)
+                         linestyle='--', linewidth=6)
 
     # Set x and y of the plot to be from 0 to 260
-    if printer_bounds:
-        plt.xlim(printer_bounds[0], printer_bounds[2])
-        plt.ylim(printer_bounds[1], printer_bounds[3])
+    # if printer_bounds:
+    #     plt.xlim(printer_bounds[0], printer_bounds[2])
+    #     plt.ylim(printer_bounds[1], printer_bounds[3])
 
+    # Set axis to be equal
+    plt.axis('equal')
+
+    # Set axis to be between (0,0) an (175,150)
+    plt.xlim(0, 175)
+    plt.ylim(0, 175)
+
+    plt.savefig(name, format='png')
     plt.show()
+
 
 # def plot_labeled_paths(labeled_paths, printer_bounds=None, figsize=(18, 18)):
 #

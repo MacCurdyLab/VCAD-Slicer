@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from libvcad import pyvcad as pv
+import pyvcad as pv
 import infill
 import visualization as vis
 
@@ -389,5 +389,5 @@ class Layer:
                 lines.append((line, (lower + higher) / 2.0))
         vis.plot_labeled_polygons_and_polylines([], lines, figsize=(20, 12))
 
-    def visualize_paths(self, printer_bounds=None):
-        vis.plot_labeled_paths(self.connected_paths, printer_bounds)
+    def visualize_paths(self, printer_bounds=None, name=None, figsize=(15, 15)):
+        vis.plot_labeled_paths(self.connected_paths, printer_bounds, name, figsize)
